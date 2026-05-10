@@ -8,6 +8,13 @@ const BIG_BLIND_AMOUNT: u32 = MINIMUM_BET;
 
 pub type Deck = VecDeque<Card>;
 
+#[derive(Debug)]
+pub enum PokerError {
+    BetTooLow(u32), // You can even include data, like what the min bet was
+    InsufficientChips,
+    InvalidPhase,
+}
+
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Suits {
     Hearts,
@@ -86,6 +93,7 @@ pub struct Player {
     pub name: String,
     pub position: TablePositions,
     pub chips: u32,
+    pub current_bet: u32,
 }
 
 impl Player {
@@ -95,7 +103,27 @@ impl Player {
             name,
             position,
             chips,
+            current_bet: 0,
         };
+    }
+    pub fn fold(&mut self, discard_pile: &mut Vec<Card>) {
+        discard_pile.append(&mut self.hand);
+        self.hand.clear();
+    }
+    pub fn raise(
+        &mut self,
+        amount: u32,
+        current_highest_bet: &mut u32,
+        bet_override: bool,
+    ) -> Result<u32, PokerError> {
+        // A raise is a relative amount MORE than the current highest bet in the round.
+        if amount < (*current_highest_bet + MINIMUM_BET) && !bet_override {
+            return Err(PokerError::BetTooLow(*current_highest_bet + MINIMUM_BET));
+        }
+        self.current_bet = amount;
+        self.chips -= amount;
+        *current_highest_bet = amount;
+        Ok(amount)
     }
 }
 
@@ -108,9 +136,23 @@ fn deal(deck: &mut Deck, players: &mut Vec<Player>) {
     }
 }
 
+fn get_user_input(player_name: &str, current_bet: u32) -> String {
+    println!("Enter your action, {}:", player_name);
+    println!("1. Fold");
+    println!("2. Check");
+    println!("3. Call {}", current_bet);
+    println!("4. Raise (minimum 10 more than current bet)");
+    let mut input = String::new();
+    std::io::stdin()
+        .read_line(&mut input)
+        .expect("Failed to read line");
+    input.trim().to_string()
+}
+
 fn main() {
     let mut rng = rand::rng();
     let deck = Card::new_deck();
+    let mut discard_pile = Vec::<Card>::with_capacity(10);
     let number_of_players = rand::random_range(3..=6);
     let mut players: Vec<Player> = vec![];
 
@@ -137,6 +179,7 @@ fn main() {
     println!("Dealing cards to {:?}", &players);
 
     let mut pot: u32 = 0;
+    let mut current_highest_bet: u32 = 0;
 
     let game_phase: GamePhases = GamePhases::PreFlop;
     let mut big_blind_index: Option<usize> = None;
@@ -144,16 +187,19 @@ fn main() {
     for (index, player) in players.iter_mut().enumerate() {
         if game_phase == GamePhases::PreFlop {
             if player.position == TablePositions::SmallBlind {
-                player.chips -= SMALL_BLIND_AMOUNT;
+                player
+                    .raise(SMALL_BLIND_AMOUNT, &mut current_highest_bet, true)
+                    .expect("Failed to raise");
                 pot += SMALL_BLIND_AMOUNT;
-                println!("{} (Small Blind) posts {}", player.name, SMALL_BLIND_AMOUNT);
+                println!("{} (Small Blind) posts {}", player.name, player.current_bet);
             } else if player.position == TablePositions::BigBlind {
-                player.chips -= BIG_BLIND_AMOUNT;
+                player
+                    .raise(BIG_BLIND_AMOUNT, &mut current_highest_bet, true)
+                    .expect("Failed to raise");
                 pot += BIG_BLIND_AMOUNT;
                 big_blind_index = Some(index);
                 println!("{} (Big Blind) posts {}", player.name, BIG_BLIND_AMOUNT);
             } else {
-                pot += 0;
                 println!("{} posts {}", player.name, 0);
             }
         }
@@ -165,7 +211,29 @@ fn main() {
     println!("\n--- Betting Round ---");
     for i in 0..players.len() {
         let index = (big_blind_index + 1 + i) % players.len();
-        let player = &players[index];
-        println!("{}'s turn to act", player.name);
+        let player_name = players[index].name.clone();
+
+        println!("{}'s turn to act", player_name);
+
+        let mut action_is_valid = false;
+        while !action_is_valid {
+            let action = get_user_input(&player_name, BIG_BLIND_AMOUNT);
+            match action.as_str() {
+                "1" => {
+                    players[index].fold(&mut discard_pile);
+                    action_is_valid = true;
+                }
+                "2" => {
+                    action_is_valid = true;
+                }
+                "3" => {
+                    action_is_valid = true;
+                }
+                "4" => {
+                    action_is_valid = true;
+                }
+                _ => println!("\nInvalid action!\n"),
+            }
+        }
     }
 }
