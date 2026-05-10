@@ -28,13 +28,24 @@ pub enum TablePositions {
     Standard,
 }
 
+impl std::fmt::Display for TablePositions {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            TablePositions::Button => write!(f, "(Button)"),
+            TablePositions::SmallBlind => write!(f, "(Small Blind)"),
+            TablePositions::BigBlind => write!(f, "(Big Blind)"),
+            TablePositions::Standard => write!(f, ""),
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct Player {
     pub hand: Vec<Card>,
     pub name: String,
     pub position: TablePositions,
     pub chips: u32,
-    pub current_bet: u32,
+    pub player_current_bet: u32,
 }
 
 impl Player {
@@ -44,7 +55,7 @@ impl Player {
             name,
             position,
             chips,
-            current_bet: 0,
+            player_current_bet: 0,
         };
     }
     pub fn fold(&mut self, discard_pile: &mut Vec<Card>) {
@@ -56,11 +67,11 @@ impl Player {
         current_highest_bet: &mut u32,
         pot: &mut u32,
     ) -> Result<u32, PokerError> {
-        let amount = *current_highest_bet;
+        let amount = *current_highest_bet - self.player_current_bet;
         if amount > self.chips {
             return Err(PokerError::InsufficientChips);
         }
-        self.current_bet = amount;
+        self.player_current_bet = *current_highest_bet;
         self.chips -= amount;
         *pot += amount;
         Ok(amount)
@@ -79,7 +90,7 @@ impl Player {
         if total_bet > self.chips {
             return Err(PokerError::InsufficientChips);
         }
-        self.current_bet = total_bet;
+        self.player_current_bet = total_bet;
         self.chips -= total_bet;
         *pot += total_bet;
         *current_highest_bet = total_bet;

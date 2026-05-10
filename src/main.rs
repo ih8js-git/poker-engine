@@ -22,12 +22,21 @@ fn deal(deck: &mut Deck, players: &mut Vec<Player>) {
     }
 }
 
-fn get_userinput_action(player_name: &str, current_bet: u32) -> String {
+fn get_userinput_action(
+    player_name: &str,
+    player_current_bet: u32,
+    current_highest_bet: u32,
+) -> String {
+    let amount_to_call = current_highest_bet - player_current_bet;
     println!("Enter your action, {}:", player_name);
     println!("1. Fold");
-    println!("2. Check");
-    println!("3. Call {}", current_bet);
-    println!("4. Raise (minimum 10 more than current bet)");
+    if amount_to_call > 0 {
+        println!("2. Call {}", amount_to_call);
+        println!("3. Raise (minimum 10 more than current bet)");
+    } else {
+        println!("2. Check");
+        println!("3. Raise (minimum 10 more than current bet)");
+    }
     let mut input = String::new();
     std::io::stdin()
         .read_line(&mut input)
@@ -93,21 +102,24 @@ fn main() {
     for (index, player) in players.iter_mut().enumerate() {
         if game_phase == GamePhases::PreFlop {
             if player.position == TablePositions::SmallBlind {
-                player.current_bet = SMALL_BLIND_AMOUNT;
+                player.player_current_bet = SMALL_BLIND_AMOUNT;
                 player.chips -= SMALL_BLIND_AMOUNT;
                 pot += SMALL_BLIND_AMOUNT;
                 current_highest_bet = SMALL_BLIND_AMOUNT;
                 player_forcing_action_index = Some(index);
-                println!("{} (Small Blind) posts {}", player.name, player.current_bet);
+                println!(
+                    "{} (Small Blind) posts {}",
+                    player.name, player.player_current_bet
+                );
             } else if player.position == TablePositions::BigBlind {
-                player.current_bet = BIG_BLIND_AMOUNT;
+                player.player_current_bet = BIG_BLIND_AMOUNT;
                 player.chips -= BIG_BLIND_AMOUNT;
                 pot += BIG_BLIND_AMOUNT;
                 current_highest_bet = BIG_BLIND_AMOUNT;
                 player_forcing_action_index = Some(index);
                 println!("{} (Big Blind) posts {}", player.name, BIG_BLIND_AMOUNT);
             } else {
-                println!("{} posts {}", player.name, 0);
+                println!("{} {} posts {}", player.name, player.position, 0);
             }
         }
     }
@@ -155,28 +167,36 @@ fn main() {
             let player_name = players[current_index].name.clone();
 
             println!("\n{}'s turn to act", player_name);
-            println!("{:?}", players[current_index].hand);
+            println!(
+                "Your hand: {:?} of {:?} and {:?} of {:?}",
+                players[current_index].hand[0].rank,
+                players[current_index].hand[0].suit,
+                players[current_index].hand[1].rank,
+                players[current_index].hand[1].suit,
+            );
+            println!("You currently have {} chips.", players[current_index].chips);
             println!("Pot size: {}", pot);
             println!("Current bet: {}", current_highest_bet);
 
             let mut action_is_valid = false;
             while !action_is_valid {
-                let action = get_userinput_action(&player_name, current_highest_bet);
+                let action = get_userinput_action(
+                    &player_name,
+                    players[current_index].player_current_bet,
+                    current_highest_bet,
+                );
                 match action.as_str() {
                     "1" => {
                         players[current_index].fold(&mut discard_pile);
                         action_is_valid = true;
                     }
                     "2" => {
-                        action_is_valid = true;
-                    }
-                    "3" => {
                         players[current_index]
                             .call(&mut current_highest_bet, &mut pot)
                             .expect("Failed to call");
                         action_is_valid = true;
                     }
-                    "4" => {
+                    "3" => {
                         get_userinput_raise(
                             &mut players[current_index],
                             &mut current_highest_bet,
