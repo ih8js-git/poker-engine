@@ -1,6 +1,7 @@
 mod card_and_deck;
 mod player;
 mod poker_error;
+mod poker_hands;
 
 use card_and_deck::{Card, Deck};
 use player::MINIMUM_BET;
@@ -58,6 +59,7 @@ fn main() {
     let mut rng = rand::rng();
     let deck = Card::new_deck();
     let mut discard_pile = Vec::<Card>::with_capacity(10);
+    let mut community_cards: Vec<Card> = Vec::with_capacity(5);
     let number_of_players = rand::random_range(3..=6);
     let mut players: Vec<Player> = vec![];
 
@@ -126,12 +128,20 @@ fn main() {
             }
             GamePhases::Flop => {
                 println!("\n--- Flop ---");
+                for _ in 0..3 {
+                    community_cards.push(deck.pop_front().unwrap());
+                }
+                println!("Community cards: {:?}", community_cards);
             }
             GamePhases::Turn => {
                 println!("\n--- Turn ---");
+                community_cards.push(deck.pop_front().unwrap());
+                println!("Community cards: {:?}", community_cards);
             }
             GamePhases::River => {
                 println!("\n--- River ---");
+                community_cards.push(deck.pop_front().unwrap());
+                println!("Community cards: {:?}", community_cards);
             }
             GamePhases::Showdown => {
                 println!("\n--- Showdown ---");
