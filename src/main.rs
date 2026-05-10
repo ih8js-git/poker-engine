@@ -2,6 +2,10 @@ use rand;
 use rand::prelude::SliceRandom;
 use std::collections::VecDeque;
 
+const MINIMUM_BET: u32 = 10;
+
+pub type Deck = VecDeque<Card>;
+
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Suits {
     Hearts,
@@ -33,7 +37,22 @@ pub struct Card {
     pub suit: Suits,
 }
 
-pub type Deck = VecDeque<Card>;
+impl Card {
+    pub fn new_deck() -> Deck {
+        let mut deck = Vec::with_capacity(52);
+        use Ranks::*;
+        use Suits::*;
+
+        for suit in [Hearts, Diamonds, Clubs, Spades] {
+            for rank in [
+                Two, Three, Four, Five, Six, Seven, Eight, Nine, Ten, Jack, Queen, King, Ace,
+            ] {
+                deck.push(Card { rank, suit });
+            }
+        }
+        return VecDeque::from(deck);
+    }
+}
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum TablePosition {
@@ -68,23 +87,6 @@ fn deal(deck: &mut Deck, players: &mut Vec<Player>) {
             let card = deck.pop_front().expect("Ran out of cards");
             player.hand.push(card);
         }
-    }
-}
-
-impl Card {
-    pub fn new_deck() -> Deck {
-        let mut deck = Vec::with_capacity(52);
-        use Ranks::*;
-        use Suits::*;
-
-        for suit in [Hearts, Diamonds, Clubs, Spades] {
-            for rank in [
-                Two, Three, Four, Five, Six, Seven, Eight, Nine, Ten, Jack, Queen, King, Ace,
-            ] {
-                deck.push(Card { rank, suit });
-            }
-        }
-        return VecDeque::from(deck);
     }
 }
 
