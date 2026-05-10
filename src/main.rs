@@ -1,5 +1,6 @@
 use rand;
 use rand::prelude::SliceRandom;
+use std::collections::VecDeque;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Suits {
@@ -32,7 +33,7 @@ pub struct Card {
     pub suit: Suits,
 }
 
-pub type Deck = Vec<Card>;
+pub type Deck = VecDeque<Card>;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum TablePosition {
@@ -62,7 +63,12 @@ impl Player {
 }
 
 fn deal(deck: &mut Deck, players: &mut Vec<Player>) {
-    for player in players {}
+    for player in players {
+        for _ in 0..2 {
+            let card = deck.pop_front().expect("Ran out of cards");
+            player.hand.push(card);
+        }
+    }
 }
 
 impl Card {
@@ -78,13 +84,13 @@ impl Card {
                 deck.push(Card { rank, suit });
             }
         }
-        return deck;
+        return VecDeque::from(deck);
     }
 }
 
 fn main() {
     let mut rng = rand::rng();
-    let mut deck = Card::new_deck();
+    let deck = Card::new_deck();
     let number_of_players = rand::random_range(3..=6);
     let mut players: Vec<Player> = vec![];
 
@@ -102,9 +108,11 @@ fn main() {
         ));
     }
 
-    println!("Dealing cards to {:?}", &players);
-
-    deck.shuffle(&mut rng);
+    let mut deck_vec: Vec<Card> = deck.into();
+    deck_vec.shuffle(&mut rng);
+    let mut deck = VecDeque::from(deck_vec);
 
     deal(&mut deck, &mut players);
+
+    println!("Dealing cards to {:?}", &players);
 }
