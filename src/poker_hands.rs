@@ -47,4 +47,233 @@ impl PokerHands {
 
         false
     }
+    // pub fn is_straight_flush(cards: &[Card; 7]) -> bool {}
+    pub fn is_four_of_a_kind(cards: &[Card; 7]) -> bool {
+        use Ranks::*;
+        for rank in [
+            Ace, King, Queen, Jack, Ten, Nine, Eight, Seven, Six, Five, Four, Three, Two,
+        ] {
+            let mut count = 0;
+            for card in cards {
+                if card.rank == rank {
+                    count += 1;
+                }
+            }
+            if count == 4 {
+                return true;
+            }
+        }
+        false
+    }
+    // pub fn is_full_house(cards: &[Card; 7]) -> bool {}
+    // pub fn is_flush(cards: &[Card; 7]) -> bool {}
+    // pub fn is_straight(cards: &[Card; 7]) -> bool {}
+    // pub fn is_three_of_a_kind(cards: &[Card; 7]) -> bool {}
+    // pub fn is_two_pair(cards: &[Card; 7]) -> bool {}
+    // pub fn is_pair(cards: &[Card; 7]) -> bool {}
+    // pub fn is_high_card(cards: &[Card; 7]) -> bool {}
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::card_and_deck::Ranks::*;
+    use crate::card_and_deck::Suits::*;
+
+    #[test]
+    fn test_is_royal_flush() {
+        let royal_flush_cards = [
+            Card {
+                rank: Ace,
+                suit: Hearts,
+            },
+            Card {
+                rank: King,
+                suit: Hearts,
+            },
+            Card {
+                rank: Queen,
+                suit: Hearts,
+            },
+            Card {
+                rank: Jack,
+                suit: Hearts,
+            },
+            Card {
+                rank: Ten,
+                suit: Hearts,
+            },
+            Card {
+                rank: Two,
+                suit: Spades,
+            },
+            Card {
+                rank: Three,
+                suit: Clubs,
+            },
+        ];
+        assert!(PokerHands::is_royal_flush(&royal_flush_cards));
+
+        let royal_flush_cards_edge_case = [
+            Card {
+                rank: Ace,
+                suit: Hearts,
+            },
+            Card {
+                rank: King,
+                suit: Hearts,
+            },
+            Card {
+                rank: Queen,
+                suit: Hearts,
+            },
+            Card {
+                rank: Jack,
+                suit: Hearts,
+            },
+            Card {
+                rank: Ten,
+                suit: Hearts,
+            },
+            Card {
+                rank: Ten,
+                suit: Spades,
+            },
+            Card {
+                rank: Three,
+                suit: Clubs,
+            },
+        ];
+        assert!(PokerHands::is_royal_flush(&royal_flush_cards_edge_case));
+
+        let mixed_hand = [
+            Card {
+                rank: Two,
+                suit: Spades,
+            },
+            Card {
+                rank: Ten,
+                suit: Hearts,
+            },
+            Card {
+                rank: Jack,
+                suit: Hearts,
+            },
+            Card {
+                rank: Queen,
+                suit: Hearts,
+            },
+            Card {
+                rank: King,
+                suit: Hearts,
+            },
+            Card {
+                rank: Ace,
+                suit: Hearts,
+            },
+            Card {
+                rank: Three,
+                suit: Clubs,
+            },
+        ];
+        assert!(PokerHands::is_royal_flush(&mixed_hand));
+
+        let not_royal_flush_cards = [
+            Card {
+                rank: Ace,
+                suit: Hearts,
+            },
+            Card {
+                rank: King,
+                suit: Hearts,
+            },
+            Card {
+                rank: Queen,
+                suit: Hearts,
+            },
+            Card {
+                rank: Jack,
+                suit: Hearts,
+            },
+            Card {
+                rank: Nine,
+                suit: Hearts,
+            },
+            Card {
+                rank: Two,
+                suit: Spades,
+            },
+            Card {
+                rank: Three,
+                suit: Clubs,
+            },
+        ];
+        assert!(!PokerHands::is_royal_flush(&not_royal_flush_cards));
+    }
+    #[test]
+    fn test_is_four_of_a_kind() {
+        let four_of_a_kind_cards = [
+            Card {
+                rank: Ace,
+                suit: Hearts,
+            },
+            Card {
+                rank: Ace,
+                suit: Diamonds,
+            },
+            Card {
+                rank: Ace,
+                suit: Clubs,
+            },
+            Card {
+                rank: Ace,
+                suit: Spades,
+            },
+            Card {
+                rank: King,
+                suit: Hearts,
+            },
+            Card {
+                rank: Queen,
+                suit: Hearts,
+            },
+            Card {
+                rank: Jack,
+                suit: Hearts,
+            },
+        ];
+        assert!(PokerHands::is_four_of_a_kind(&four_of_a_kind_cards));
+
+        let not_four_of_a_kind_cards = [
+            Card {
+                rank: Ace,
+                suit: Hearts,
+            },
+            Card {
+                rank: Ace,
+                suit: Diamonds,
+            },
+            Card {
+                rank: Ace,
+                suit: Clubs,
+            },
+            Card {
+                rank: King,
+                suit: Spades,
+            },
+            Card {
+                rank: King,
+                suit: Hearts,
+            },
+            Card {
+                rank: Queen,
+                suit: Hearts,
+            },
+            Card {
+                rank: Jack,
+                suit: Hearts,
+            },
+        ];
+        assert!(!PokerHands::is_four_of_a_kind(&not_four_of_a_kind_cards));
+    }
 }
