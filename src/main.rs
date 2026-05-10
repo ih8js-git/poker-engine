@@ -10,9 +10,19 @@ pub type Deck = VecDeque<Card>;
 
 #[derive(Debug)]
 pub enum PokerError {
-    BetTooLow(u32), // You can even include data, like what the min bet was
+    BetTooLow(u32),
     InsufficientChips,
     InvalidPhase,
+}
+
+impl std::fmt::Display for PokerError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            PokerError::BetTooLow(min) => write!(f, "Your bet must be at least {} chips.", min),
+            PokerError::InsufficientChips => write!(f, "You don't have enough chips for that bet."),
+            PokerError::InvalidPhase => write!(f, "You cannot perform that action in the current game phase."),
+        }
+    }
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -136,7 +146,7 @@ fn deal(deck: &mut Deck, players: &mut Vec<Player>) {
     }
 }
 
-fn get_user_input(player_name: &str, current_bet: u32) -> String {
+fn get_userinput_action(player_name: &str, current_bet: u32) -> String {
     println!("Enter your action, {}:", player_name);
     println!("1. Fold");
     println!("2. Check");
@@ -147,6 +157,26 @@ fn get_user_input(player_name: &str, current_bet: u32) -> String {
         .read_line(&mut input)
         .expect("Failed to read line");
     input.trim().to_string()
+}
+
+fn get_userinput_raise(player: &mut Player, current_highest_bet: &mut u32) {
+    println!("Enter your raise amount, {}:", player.name);
+    println!(
+        "Minimum raise amount: {}",
+        *current_highest_bet + MINIMUM_BET
+    );
+    let mut input = String::new();
+    std::io::stdin()
+        .read_line(&mut input)
+        .expect("Failed to read line");
+    let bet_amount = input.trim().parse().expect("Failed to parse");
+    match player.raise(bet_amount, current_highest_bet, false) {
+        Ok(_) => {}
+        Err(e) => {
+            println!("{}", e);
+            get_userinput_raise(player, current_highest_bet);
+        }
+    }
 }
 
 fn main() {
@@ -217,7 +247,7 @@ fn main() {
 
         let mut action_is_valid = false;
         while !action_is_valid {
-            let action = get_user_input(&player_name, BIG_BLIND_AMOUNT);
+            let action = get_userinput_action(&player_name, BIG_BLIND_AMOUNT);
             match action.as_str() {
                 "1" => {
                     players[index].fold(&mut discard_pile);
@@ -230,6 +260,7 @@ fn main() {
                     action_is_valid = true;
                 }
                 "4" => {
+                    get_userinput_raise(&mut players[index], &mut current_highest_bet);
                     action_is_valid = true;
                 }
                 _ => println!("\nInvalid action!\n"),
