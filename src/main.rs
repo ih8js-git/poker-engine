@@ -20,7 +20,10 @@ impl std::fmt::Display for PokerError {
         match self {
             PokerError::BetTooLow(min) => write!(f, "Your bet must be at least {} chips.", min),
             PokerError::InsufficientChips => write!(f, "You don't have enough chips for that bet."),
-            PokerError::InvalidPhase => write!(f, "You cannot perform that action in the current game phase."),
+            PokerError::InvalidPhase => write!(
+                f,
+                "You cannot perform that action in the current game phase."
+            ),
         }
     }
 }
@@ -237,17 +240,35 @@ fn main() {
 
     let big_blind_index = big_blind_index.expect("Big Blind not found!");
 
-    println!("Total pot: {}", pot);
-    println!("\n--- Betting Round ---");
+    match game_phase {
+        GamePhases::PreFlop => {
+            println!("\n--- Pre-Flop ---");
+        }
+        GamePhases::Flop => {
+            println!("\n--- Flop ---");
+        }
+        GamePhases::Turn => {
+            println!("\n--- Turn ---");
+        }
+        GamePhases::River => {
+            println!("\n--- River ---");
+        }
+        GamePhases::Showdown => {
+            println!("\n--- Showdown ---");
+        }
+    }
+
     for i in 0..players.len() {
         let index = (big_blind_index + 1 + i) % players.len();
         let player_name = players[index].name.clone();
 
-        println!("{}'s turn to act", player_name);
+        println!("\n{}'s turn to act", player_name);
+        println!("Pot size: {}", pot);
+        println!("Current bet: {}", current_highest_bet);
 
         let mut action_is_valid = false;
         while !action_is_valid {
-            let action = get_userinput_action(&player_name, BIG_BLIND_AMOUNT);
+            let action = get_userinput_action(&player_name, current_highest_bet);
             match action.as_str() {
                 "1" => {
                     players[index].fold(&mut discard_pile);
@@ -257,6 +278,10 @@ fn main() {
                     action_is_valid = true;
                 }
                 "3" => {
+                    players[index]
+                        .raise(current_highest_bet, &mut current_highest_bet, true)
+                        .expect("Failed to raise");
+                    pot += current_highest_bet;
                     action_is_valid = true;
                 }
                 "4" => {
