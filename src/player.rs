@@ -51,18 +51,34 @@ impl Player {
         discard_pile.append(&mut self.hand);
         self.hand.clear();
     }
+    pub fn call(
+        &mut self,
+        current_highest_bet: &mut u32,
+        pot: &mut u32,
+    ) -> Result<u32, PokerError> {
+        let amount = *current_highest_bet;
+        if amount > self.chips {
+            return Err(PokerError::InsufficientChips);
+        }
+        self.current_bet = amount;
+        self.chips -= amount;
+        *pot += amount;
+        Ok(amount)
+    }
     pub fn raise(
         &mut self,
         amount: u32,
         current_highest_bet: &mut u32,
         pot: &mut u32,
-        bet_override: bool,
     ) -> Result<u32, PokerError> {
         // A raise is a relative amount MORE than the current highest bet in the round.
-        if amount < (*current_highest_bet + MINIMUM_BET) && !bet_override {
+        if amount < *current_highest_bet + MINIMUM_BET {
             return Err(PokerError::BetTooLow(*current_highest_bet + MINIMUM_BET));
         }
         let total_bet = amount + *current_highest_bet;
+        if total_bet > self.chips {
+            return Err(PokerError::InsufficientChips);
+        }
         self.current_bet = total_bet;
         self.chips -= total_bet;
         *pot += total_bet;

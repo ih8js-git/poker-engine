@@ -45,7 +45,7 @@ fn get_userinput_raise(player: &mut Player, current_highest_bet: &mut u32, pot: 
         .read_line(&mut input)
         .expect("Failed to read line");
     let bet_amount = input.trim().parse().expect("Failed to parse");
-    match player.raise(bet_amount, current_highest_bet, pot, false) {
+    match player.raise(bet_amount, current_highest_bet, pot) {
         Ok(_) => {}
         Err(e) => {
             println!("{}", e);
@@ -81,8 +81,6 @@ fn main() {
 
     deal(&mut deck, &mut players);
 
-    println!("Dealing cards to {:?}", &players);
-
     let mut pot: u32 = 0;
     let mut current_highest_bet: u32 = 0;
 
@@ -93,15 +91,17 @@ fn main() {
     for (index, player) in players.iter_mut().enumerate() {
         if game_phase == GamePhases::PreFlop {
             if player.position == TablePositions::SmallBlind {
-                player
-                    .raise(SMALL_BLIND_AMOUNT, &mut current_highest_bet, &mut pot, true)
-                    .expect("Failed to raise");
+                player.current_bet = SMALL_BLIND_AMOUNT;
+                player.chips -= SMALL_BLIND_AMOUNT;
+                pot += SMALL_BLIND_AMOUNT;
+                current_highest_bet = SMALL_BLIND_AMOUNT;
                 player_forcing_action_index = Some(index);
                 println!("{} (Small Blind) posts {}", player.name, player.current_bet);
             } else if player.position == TablePositions::BigBlind {
-                player
-                    .raise(BIG_BLIND_AMOUNT, &mut current_highest_bet, &mut pot, true)
-                    .expect("Failed to raise");
+                player.current_bet = BIG_BLIND_AMOUNT;
+                player.chips -= BIG_BLIND_AMOUNT;
+                pot += BIG_BLIND_AMOUNT;
+                current_highest_bet = BIG_BLIND_AMOUNT;
                 player_forcing_action_index = Some(index);
                 println!("{} (Big Blind) posts {}", player.name, BIG_BLIND_AMOUNT);
             } else {
@@ -113,72 +113,76 @@ fn main() {
     let mut player_forcing_action_index =
         player_forcing_action_index.expect("Player forcing action not found!");
 
-    match game_phase {
-        GamePhases::PreFlop => {
-            println!("\n--- Pre-Flop ---");
-        }
-        GamePhases::Flop => {
-            println!("\n--- Flop ---");
-        }
-        GamePhases::Turn => {
-            println!("\n--- Turn ---");
-        }
-        GamePhases::River => {
-            println!("\n--- River ---");
-        }
-        GamePhases::Showdown => {
-            println!("\n--- Showdown ---");
-        }
-    }
-
-    let mut current_index = (player_forcing_action_index + 1) % players.len();
-    let mut round_over = false;
-
-    while !round_over {
-        let player_name = players[current_index].name.clone();
-
-        println!("\n{}'s turn to act", player_name);
-        println!("Pot size: {}", pot);
-        println!("Current bet: {}", current_highest_bet);
-
-        let mut action_is_valid = false;
-        while !action_is_valid {
-            let action = get_userinput_action(&player_name, current_highest_bet);
-            match action.as_str() {
-                "1" => {
-                    players[current_index].fold(&mut discard_pile);
-                    action_is_valid = true;
-                }
-                "2" => {
-                    action_is_valid = true;
-                }
-                "3" => {
-                    players[current_index]
-                        .raise(
-                            current_highest_bet,
-                            &mut current_highest_bet,
-                            &mut pot,
-                            true,
-                        )
-                        .expect("Failed to raise");
-                    action_is_valid = true;
-                }
-                "4" => {
-                    get_userinput_raise(
-                        &mut players[current_index],
-                        &mut current_highest_bet,
-                        &mut pot,
-                    );
-                    player_forcing_action_index = current_index;
-                    action_is_valid = true;
-                }
-                _ => println!("\nInvalid action!\n"),
+    for phase in [
+        GamePhases::PreFlop,
+        GamePhases::Flop,
+        GamePhases::Turn,
+        GamePhases::River,
+        GamePhases::Showdown,
+    ] {
+        match phase {
+            GamePhases::PreFlop => {
+                println!("\n--- Pre-Flop ---");
+            }
+            GamePhases::Flop => {
+                println!("\n--- Flop ---");
+            }
+            GamePhases::Turn => {
+                println!("\n--- Turn ---");
+            }
+            GamePhases::River => {
+                println!("\n--- River ---");
+            }
+            GamePhases::Showdown => {
+                println!("\n--- Showdown ---");
             }
         }
 
-        current_index = (current_index + 1) % players.len();
-        if current_index == player_forcing_action_index {
-            round_over = true;
+        let mut current_index = (player_forcing_action_index + 1) % players.len();
+        let mut round_over = false;
+
+        while !round_over {
+            let player_name = players[current_index].name.clone();
+
+            println!("\n{}'s turn to act", player_name);
+            println!("{:?}", players[current_index].hand);
+            println!("Pot size: {}", pot);
+            println!("Current bet: {}", current_highest_bet);
+
+            let mut action_is_valid = false;
+            while !action_is_valid {
+                let action = get_userinput_action(&player_name, current_highest_bet);
+                match action.as_str() {
+                    "1" => {
+                        players[current_index].fold(&mut discard_pile);
+                        action_is_valid = true;
+                    }
+                    "2" => {
+                        action_is_valid = true;
+                    }
+                    "3" => {
+                        players[current_index]
+                            .call(&mut current_highest_bet, &mut pot)
+                            .expect("Failed to call");
+                        action_is_valid = true;
+                    }
+                    "4" => {
+                        get_userinput_raise(
+                            &mut players[current_index],
+                            &mut current_highest_bet,
+                            &mut pot,
+                        );
+                        player_forcing_action_index = current_index;
+                        action_is_valid = true;
+                    }
+                    _ => println!("\nInvalid action!\n"),
+                }
+            }
+
+            current_index = (current_index + 1) % players.len();
+            if current_index == player_forcing_action_index {
+                round_over = true;
+            }
         }
     }
 }
