@@ -105,7 +105,24 @@ impl PokerHands {
         }
         false
     }
-    // pub fn is_two_pair(cards: &[Card; 7]) -> bool {}
+    pub fn is_two_pair(cards: &[Card; 7]) -> bool {
+        use Ranks::*;
+        let mut pairs_found = 0;
+        for rank in [
+            Ace, King, Queen, Jack, Ten, Nine, Eight, Seven, Six, Five, Four, Three, Two,
+        ] {
+            let mut count = 0;
+            for card in cards {
+                if card.rank == rank {
+                    count += 1;
+                }
+            }
+            if count >= 2 {
+                pairs_found += 1;
+            }
+        }
+        pairs_found >= 2
+    }
     pub fn is_pair(cards: &[Card; 7]) -> bool {
         use Ranks::*;
         for rank in [
@@ -122,6 +139,21 @@ impl PokerHands {
             }
         }
         false
+    }
+    pub fn get_best_hand(cards: &[Card; 7]) -> PokerHands {
+        use PokerHands::*;
+        match () {
+            _ if Self::is_royal_flush(cards) => RoyalFlush,
+            _ if Self::is_straight_flush(cards) => StraightFlush,
+            _ if Self::is_four_of_a_kind(cards) => FourOfAKind,
+            _ if Self::is_full_house(cards) => FullHouse,
+            _ if Self::is_flush(cards) => Flush,
+            _ if Self::is_straight(cards) => Straight,
+            _ if Self::is_three_of_a_kind(cards) => ThreeOfAKind,
+            _ if Self::is_two_pair(cards) => TwoPair,
+            _ if Self::is_pair(cards) => Pair,
+            _ => HighCard,
+        }
     }
 }
 
@@ -326,5 +358,135 @@ mod tests {
             },
         ];
         assert!(!PokerHands::is_four_of_a_kind(&not_four_of_a_kind_cards));
+    }
+    #[test]
+    fn test_is_two_pair() {
+        let is_two_pair = [
+            Card {
+                rank: Ace,
+                suit: Hearts,
+            },
+            Card {
+                rank: Ace,
+                suit: Diamonds,
+            },
+            Card {
+                rank: King,
+                suit: Hearts,
+            },
+            Card {
+                rank: King,
+                suit: Clubs,
+            },
+            Card {
+                rank: Queen,
+                suit: Spades,
+            },
+            Card {
+                rank: Jack,
+                suit: Hearts,
+            },
+            Card {
+                rank: Ten,
+                suit: Clubs,
+            },
+        ];
+        assert!(PokerHands::is_two_pair(&is_two_pair));
+
+        let not_two_pair = [
+            Card {
+                rank: Ace,
+                suit: Hearts,
+            },
+            Card {
+                rank: Ace,
+                suit: Diamonds,
+            },
+            Card {
+                rank: King,
+                suit: Hearts,
+            },
+            Card {
+                rank: Seven,
+                suit: Clubs,
+            },
+            Card {
+                rank: Queen,
+                suit: Spades,
+            },
+            Card {
+                rank: Jack,
+                suit: Hearts,
+            },
+            Card {
+                rank: Ten,
+                suit: Clubs,
+            },
+        ];
+        assert!(!PokerHands::is_two_pair(&not_two_pair));
+
+        let three_of_a_kind = [
+            Card {
+                rank: Ace,
+                suit: Hearts,
+            },
+            Card {
+                rank: Ace,
+                suit: Diamonds,
+            },
+            Card {
+                rank: Ace,
+                suit: Clubs,
+            },
+            Card {
+                rank: King,
+                suit: Hearts,
+            },
+            Card {
+                rank: Queen,
+                suit: Spades,
+            },
+            Card {
+                rank: Jack,
+                suit: Hearts,
+            },
+            Card {
+                rank: Ten,
+                suit: Clubs,
+            },
+        ];
+        assert!(!PokerHands::is_two_pair(&three_of_a_kind));
+
+        let full_house = [
+            Card {
+                rank: Ace,
+                suit: Hearts,
+            },
+            Card {
+                rank: Ace,
+                suit: Diamonds,
+            },
+            Card {
+                rank: Ace,
+                suit: Clubs,
+            },
+            Card {
+                rank: King,
+                suit: Hearts,
+            },
+            Card {
+                rank: King,
+                suit: Clubs,
+            },
+            Card {
+                rank: Jack,
+                suit: Hearts,
+            },
+            Card {
+                rank: Ten,
+                suit: Clubs,
+            },
+        ];
+        assert!(PokerHands::is_two_pair(&full_house));
     }
 }
