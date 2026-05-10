@@ -133,10 +133,11 @@ impl Player {
         if amount < (*current_highest_bet + MINIMUM_BET) && !bet_override {
             return Err(PokerError::BetTooLow(*current_highest_bet + MINIMUM_BET));
         }
-        self.current_bet = amount;
-        self.chips -= amount;
-        *current_highest_bet = amount;
-        Ok(amount)
+        let total_bet = amount + *current_highest_bet;
+        self.current_bet = total_bet;
+        self.chips -= total_bet;
+        *current_highest_bet = total_bet;
+        Ok(total_bet)
     }
 }
 
@@ -281,7 +282,6 @@ fn main() {
                     players[index]
                         .raise(current_highest_bet, &mut current_highest_bet, true)
                         .expect("Failed to raise");
-                    pot += current_highest_bet;
                     action_is_valid = true;
                 }
                 "4" => {
