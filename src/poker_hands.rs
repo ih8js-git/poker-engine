@@ -66,12 +66,63 @@ impl PokerHands {
         false
     }
     // pub fn is_full_house(cards: &[Card; 7]) -> bool {}
-    // pub fn is_flush(cards: &[Card; 7]) -> bool {}
+    pub fn is_flush(cards: &[Card; 7]) -> bool {
+        let mut num_hearts = 0;
+        let mut num_diamonds = 0;
+        let mut num_clubs = 0;
+        let mut num_spades = 0;
+
+        for card in cards {
+            match card.suit {
+                Suits::Hearts => num_hearts += 1,
+                Suits::Diamonds => num_diamonds += 1,
+                Suits::Clubs => num_clubs += 1,
+                Suits::Spades => num_spades += 1,
+            }
+        }
+
+        if num_hearts >= 5 || num_diamonds >= 5 || num_clubs >= 5 || num_spades >= 5 {
+            return true;
+        }
+
+        false
+    }
     // pub fn is_straight(cards: &[Card; 7]) -> bool {}
-    // pub fn is_three_of_a_kind(cards: &[Card; 7]) -> bool {}
+    pub fn is_three_of_a_kind(cards: &[Card; 7]) -> bool {
+        use Ranks::*;
+        for rank in [
+            Ace, King, Queen, Jack, Ten, Nine, Eight, Seven, Six, Five, Four, Three, Two,
+        ] {
+            let mut count = 0;
+            for card in cards {
+                if card.rank == rank {
+                    count += 1;
+                }
+            }
+            if count == 3 {
+                return true;
+            }
+        }
+        false
+    }
     // pub fn is_two_pair(cards: &[Card; 7]) -> bool {}
-    // pub fn is_pair(cards: &[Card; 7]) -> bool {}
-    // pub fn is_high_card(cards: &[Card; 7]) -> bool {}
+    pub fn is_pair(cards: &[Card; 7]) -> bool {
+        use Ranks::*;
+        for rank in [
+            Ace, King, Queen, Jack, Ten, Nine, Eight, Seven, Six, Five, Four, Three, Two,
+        ] {
+            let mut count = 0;
+            for card in cards {
+                if card.rank == rank {
+                    count += 1;
+                }
+            }
+            if count == 2 {
+                return true;
+            }
+        }
+        false
+    }
 }
 
 #[cfg(test)]
