@@ -4,7 +4,7 @@ use std::fmt;
 
 pub type Deck = VecDeque<Card>;
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Suits {
     Hearts,
     Diamonds,
@@ -23,7 +23,7 @@ impl fmt::Display for Suits {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Ranks {
     Ace,
     King,
@@ -38,6 +38,26 @@ pub enum Ranks {
     Four,
     Three,
     Two,
+}
+
+impl Ranks {
+    pub fn to_int(&self) -> u32 {
+        match self {
+            Ranks::Ace => 14,
+            Ranks::King => 13,
+            Ranks::Queen => 12,
+            Ranks::Jack => 11,
+            Ranks::Ten => 10,
+            Ranks::Nine => 9,
+            Ranks::Eight => 8,
+            Ranks::Seven => 7,
+            Ranks::Six => 6,
+            Ranks::Five => 5,
+            Ranks::Four => 4,
+            Ranks::Three => 3,
+            Ranks::Two => 2,
+        }
+    }
 }
 
 impl fmt::Display for Ranks {

@@ -1,14 +1,9 @@
-mod card_and_deck;
-mod player;
-mod poker_error;
-mod poker_hands;
+use poker_engine::card_and_deck::{Card, Deck};
+use poker_engine::player::{GamePhases, MINIMUM_BET, Player, TablePositions};
 
-use card_and_deck::{Card, Deck};
-use player::MINIMUM_BET;
-use player::{GamePhases, Player, TablePositions};
+use owo_colors::OwoColorize;
 use rand;
 use rand::prelude::SliceRandom;
-use owo_colors::OwoColorize;
 use std::collections::VecDeque;
 
 const SMALL_BLIND_AMOUNT: u32 = MINIMUM_BET / 2;
@@ -182,8 +177,7 @@ fn main() {
             println!("\n{}'s turn to act", player_name);
             println!(
                 "Your hand: {} and {}",
-                players[current_index].hand[0],
-                players[current_index].hand[1],
+                players[current_index].hand[0], players[current_index].hand[1],
             );
             println!("You currently have {} chips.", players[current_index].chips);
             println!("Pot size: {}", pot);
