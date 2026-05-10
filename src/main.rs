@@ -8,6 +8,7 @@ use player::MINIMUM_BET;
 use player::{GamePhases, Player, TablePositions};
 use rand;
 use rand::prelude::SliceRandom;
+use owo_colors::OwoColorize;
 use std::collections::VecDeque;
 
 const SMALL_BLIND_AMOUNT: u32 = MINIMUM_BET / 2;
@@ -136,27 +137,39 @@ fn main() {
     ] {
         match phase {
             GamePhases::PreFlop => {
-                println!("\n--- Pre-Flop ---");
+                println!("\n{}", "--- Pre-Flop ---".bright_yellow().bold());
             }
             GamePhases::Flop => {
-                println!("\n--- Flop ---");
+                println!("\n{}", "--- Flop ---".bright_yellow().bold());
                 for _ in 0..3 {
                     community_cards.push(deck.pop_front().unwrap());
                 }
-                println!("Community cards: {:?}", community_cards);
+                print!("Community cards: ");
+                for card in &community_cards {
+                    print!("{} ", card);
+                }
+                println!();
             }
             GamePhases::Turn => {
-                println!("\n--- Turn ---");
+                println!("\n{}", "--- Turn ---".bright_yellow().bold());
                 community_cards.push(deck.pop_front().unwrap());
-                println!("Community cards: {:?}", community_cards);
+                print!("Community cards: ");
+                for card in &community_cards {
+                    print!("{} ", card);
+                }
+                println!();
             }
             GamePhases::River => {
-                println!("\n--- River ---");
+                println!("\n{}", "--- River ---".bright_yellow().bold());
                 community_cards.push(deck.pop_front().unwrap());
-                println!("Community cards: {:?}", community_cards);
+                print!("Community cards: ");
+                for card in &community_cards {
+                    print!("{} ", card);
+                }
+                println!();
             }
             GamePhases::Showdown => {
-                println!("\n--- Showdown ---");
+                println!("\n{}", "--- Showdown ---".bright_yellow().bold());
             }
         }
 
@@ -168,11 +181,9 @@ fn main() {
 
             println!("\n{}'s turn to act", player_name);
             println!(
-                "Your hand: {:?} of {:?} and {:?} of {:?}",
-                players[current_index].hand[0].rank,
-                players[current_index].hand[0].suit,
-                players[current_index].hand[1].rank,
-                players[current_index].hand[1].suit,
+                "Your hand: {} and {}",
+                players[current_index].hand[0],
+                players[current_index].hand[1],
             );
             println!("You currently have {} chips.", players[current_index].chips);
             println!("Pot size: {}", pot);

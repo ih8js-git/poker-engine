@@ -1,4 +1,6 @@
+use owo_colors::{OwoColorize, Rgb};
 use std::collections::VecDeque;
+use std::fmt;
 
 pub type Deck = VecDeque<Card>;
 
@@ -8,6 +10,17 @@ pub enum Suits {
     Diamonds,
     Clubs,
     Spades,
+}
+
+impl fmt::Display for Suits {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Suits::Hearts => write!(f, "{}", "♥".red()),
+            Suits::Diamonds => write!(f, "{}", "♦".color(Rgb(255, 165, 0))),
+            Suits::Clubs => write!(f, "{}", "♣".blue()),
+            Suits::Spades => write!(f, "{}", "♠".bright_black()),
+        }
+    }
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -27,10 +40,38 @@ pub enum Ranks {
     Two,
 }
 
+impl fmt::Display for Ranks {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
+            Ranks::Ace => "A",
+            Ranks::King => "K",
+            Ranks::Queen => "Q",
+            Ranks::Jack => "J",
+            Ranks::Ten => "10",
+            Ranks::Nine => "9",
+            Ranks::Eight => "8",
+            Ranks::Seven => "7",
+            Ranks::Six => "6",
+            Ranks::Five => "5",
+            Ranks::Four => "4",
+            Ranks::Three => "3",
+            Ranks::Two => "2",
+        };
+        write!(f, "{}", s)
+    }
+}
+
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct Card {
     pub rank: Ranks,
     pub suit: Suits,
+}
+
+impl fmt::Display for Card {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // Display as "RankSymbol" e.g. "A♥"
+        write!(f, "{}{}", self.rank, self.suit)
+    }
 }
 
 impl Card {
