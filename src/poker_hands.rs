@@ -91,26 +91,35 @@ impl PokerHands {
         }
         has_three_of_a_kind && has_pair
     }
-    pub fn is_flush(cards: &[Card; 7]) -> bool {
-        let mut num_hearts = 0;
-        let mut num_diamonds = 0;
-        let mut num_clubs = 0;
-        let mut num_spades = 0;
+    pub fn is_flush(cards: &[Card; 7]) -> (Option<PokerHands>, Option<Vec<Card>>) {
+        let mut hearts = Vec::new();
+        let mut diamonds = Vec::new();
+        let mut clubs = Vec::new();
+        let mut spades = Vec::new();
 
         for card in cards {
             match card.suit {
-                Suits::Hearts => num_hearts += 1,
-                Suits::Diamonds => num_diamonds += 1,
-                Suits::Clubs => num_clubs += 1,
-                Suits::Spades => num_spades += 1,
+                Suits::Hearts => hearts.push(card.clone()),
+                Suits::Diamonds => diamonds.push(card.clone()),
+                Suits::Clubs => clubs.push(card.clone()),
+                Suits::Spades => spades.push(card.clone()),
             }
         }
 
-        if num_hearts >= 5 || num_diamonds >= 5 || num_clubs >= 5 || num_spades >= 5 {
-            return true;
+        if hearts.len() >= 5 {
+            return (Some(PokerHands::Flush), Some(hearts));
+        }
+        if diamonds.len() >= 5 {
+            return (Some(PokerHands::Flush), Some(diamonds));
+        }
+        if clubs.len() >= 5 {
+            return (Some(PokerHands::Flush), Some(clubs));
+        }
+        if spades.len() >= 5 {
+            return (Some(PokerHands::Flush), Some(spades));
         }
 
-        false
+        (None, None)
     }
     pub fn check_straights(cards: &[Card; 7]) -> (Option<PokerHands>, Option<Vec<Card>>) {
         // 1. Check for Straight Flush / Royal Flush
@@ -250,8 +259,9 @@ impl PokerHands {
         if Self::is_full_house(cards) {
             return (FullHouse, None);
         }
-        if Self::is_flush(cards) {
-            return (Flush, None);
+        let (flush_hand, flush_cards) = Self::is_flush(cards);
+        if let Some(hand) = flush_hand {
+            return (hand, flush_cards);
         }
 
         if let Some(hand) = straight_hand {
