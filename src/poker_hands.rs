@@ -1,4 +1,4 @@
-use crate::card_and_deck::{Card, Ranks, Suits};
+use crate::card_and_deck::{Card, Suits};
 use std::collections::HashMap;
 
 #[derive(Debug, PartialEq, Eq, Copy, Clone)]
@@ -43,53 +43,46 @@ impl PokerHands {
                 .push(card.clone());
         }
 
-        for count in [4, 3, 2] {
-            let mut best_rank: Option<Ranks> = None;
-            let mut best_cards: Option<Vec<Card>> = None;
+        let mut sorted_counts: Vec<_> = rank_counts.into_iter().collect();
+        sorted_counts.sort_by(|a, b| {
+            b.1.len()
+                .cmp(&a.1.len())
+                .then_with(|| b.0.to_int().cmp(&a.0.to_int()))
+        });
 
-            for (rank, matching_cards) in &rank_counts {
-                if matching_cards.len() == count {
-                    if best_rank.is_none() || rank.to_int() > best_rank.as_ref().unwrap().to_int() {
-                        best_rank = Some(*rank);
-                        best_cards = Some(matching_cards.clone());
-                    }
-                }
-            }
-
-            if let Some(cards) = best_cards {
-                let hand = match count {
-                    4 => PokerHands::FourOfAKind,
-                    3 => PokerHands::ThreeOfAKind,
-                    2 => PokerHands::Pair,
-                    _ => unreachable!(),
-                };
-                return (Some(hand), Some(cards));
-            }
+        if sorted_counts[0].1.len() == 4 {
+            return (
+                Some(PokerHands::FourOfAKind),
+                Some(sorted_counts[0].1.clone()),
+            );
         }
+
+        if sorted_counts[0].1.len() == 3 {
+            if sorted_counts.len() >= 2 && sorted_counts[1].1.len() >= 2 {
+                let mut fh_cards = sorted_counts[0].1.clone();
+                fh_cards.extend(sorted_counts[1].1.iter().take(2).cloned());
+                return (Some(PokerHands::FullHouse), Some(fh_cards));
+            }
+            return (
+                Some(PokerHands::ThreeOfAKind),
+                Some(sorted_counts[0].1.clone()),
+            );
+        }
+
+        if sorted_counts.len() >= 2
+            && sorted_counts[0].1.len() == 2
+            && sorted_counts[1].1.len() == 2
+        {
+            let mut tp_cards = sorted_counts[0].1.clone();
+            tp_cards.extend(sorted_counts[1].1.clone());
+            return (Some(PokerHands::TwoPair), Some(tp_cards));
+        }
+
+        if sorted_counts[0].1.len() == 2 {
+            return (Some(PokerHands::Pair), Some(sorted_counts[0].1.clone()));
+        }
+
         (None, None)
-    }
-    pub fn is_full_house(cards: &[Card; 7]) -> bool {
-        use Ranks::*;
-        let mut has_three_of_a_kind = false;
-        let mut has_pair = false;
-
-        for rank in [
-            Ace, King, Queen, Jack, Ten, Nine, Eight, Seven, Six, Five, Four, Three, Two,
-        ] {
-            let mut count = 0;
-            for card in cards {
-                if card.rank == rank {
-                    count += 1;
-                }
-            }
-            if count == 3 {
-                has_three_of_a_kind = true;
-            }
-            if count == 2 {
-                has_pair = true;
-            }
-        }
-        has_three_of_a_kind && has_pair
     }
     pub fn is_flush(cards: &[Card; 7]) -> (Option<PokerHands>, Option<Vec<Card>>) {
         let mut hearts = Vec::new();
@@ -210,24 +203,6 @@ impl PokerHands {
 
         (None, None)
     }
-    pub fn is_two_pair(cards: &[Card; 7]) -> bool {
-        use Ranks::*;
-        let mut pairs_found = 0;
-        for rank in [
-            Ace, King, Queen, Jack, Ten, Nine, Eight, Seven, Six, Five, Four, Three, Two,
-        ] {
-            let mut count = 0;
-            for card in cards {
-                if card.rank == rank {
-                    count += 1;
-                }
-            }
-            if count >= 2 {
-                pairs_found += 1;
-            }
-        }
-        pairs_found >= 2
-    }
     pub fn is_high_card(cards: &[Card; 7]) -> Option<Vec<Card>> {
         let mut high_card = None;
         for card in cards {
@@ -256,9 +231,10 @@ impl PokerHands {
         if let Some(FourOfAKind) = dupe_hand {
             return (FourOfAKind, dupe_cards);
         }
-        if Self::is_full_house(cards) {
-            return (FullHouse, None);
+        if let Some(FullHouse) = dupe_hand {
+            return (FullHouse, dupe_cards);
         }
+
         let (flush_hand, flush_cards) = Self::is_flush(cards);
         if let Some(hand) = flush_hand {
             return (hand, flush_cards);
@@ -268,14 +244,10 @@ impl PokerHands {
             return (hand, straight_cards);
         }
 
-        if let Some(ThreeOfAKind) = dupe_hand {
-            return (ThreeOfAKind, dupe_cards);
-        }
-        if Self::is_two_pair(cards) {
-            return (TwoPair, None);
-        }
-        if let Some(Pair) = dupe_hand {
-            return (Pair, dupe_cards);
+        if let Some(hand) = dupe_hand {
+            // Since we've already checked 4-of-a-kind and Full House,
+            // this will catch ThreeOfAKind, TwoPair, or Pair.
+            return (hand, dupe_cards);
         }
 
         (HighCard, Self::is_high_card(cards))
