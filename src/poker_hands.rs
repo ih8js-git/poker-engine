@@ -2,7 +2,7 @@ use crate::card_and_deck::{Card, Ranks, Suits};
 use std::collections::HashMap;
 use std::collections::HashSet;
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Copy, Clone)]
 pub enum PokerHands {
     RoyalFlush,
     StraightFlush,
@@ -163,41 +163,94 @@ impl PokerHands {
 
         false
     }
-    pub fn is_straight(cards: &[Card; 7]) -> Option<Vec<Card>> {
-        // Convert our 7 cards to their int form using Ranks::to_int
-        let mut cards_hash_map = HashMap::new();
+    pub fn check_straights(cards: &[Card; 7]) -> (Option<PokerHands>, Option<Vec<Card>>) {
+        // 1. Check for Straight Flush / Royal Flush
+        let mut suit_groups: HashMap<crate::card_and_deck::Suits, Vec<&Card>> = HashMap::new();
         for card in cards {
-            cards_hash_map.insert(card.rank.to_int(), card);
+            suit_groups.entry(card.suit).or_default().push(card);
         }
 
-        // Handle Ace-low straight (A, 2, 3, 4, 5)
-        // If we have an Ace (14), we also count it as a 1
-        if let Some(&ace_card) = cards_hash_map.get(&14) {
-            cards_hash_map.entry(1).or_insert(ace_card);
-        }
+        let mut best_straight_flush: Option<(PokerHands, Vec<Card>)> = None;
 
-        // Get sorted list of unique ranks
-        let mut ranks: Vec<u32> = cards_hash_map.keys().copied().collect();
-        ranks.sort();
+        for (_suit, suit_cards) in suit_groups {
+            if suit_cards.len() >= 5 {
+                let mut ranks_map = HashMap::new();
+                for card in suit_cards {
+                    ranks_map.insert(card.rank.to_int(), card);
+                }
+                // Handle Ace-low
+                if let Some(&ace_card) = ranks_map.get(&14) {
+                    ranks_map.insert(1, ace_card);
+                }
 
-        if ranks.len() < 5 {
-            return None;
-        }
+                let mut ranks: Vec<u32> = ranks_map.keys().copied().collect();
+                ranks.sort();
 
-        // Check if we have 5 consecutive numbers (iterate in reverse to find the highest straight)
-        for i in (0..=ranks.len() - 5).rev() {
-            if ranks[i + 4] == ranks[i] + 4 {
-                return Some(vec![
-                    **cards_hash_map.get(&ranks[i]).unwrap(),
-                    **cards_hash_map.get(&ranks[i + 1]).unwrap(),
-                    **cards_hash_map.get(&ranks[i + 2]).unwrap(),
-                    **cards_hash_map.get(&ranks[i + 3]).unwrap(),
-                    **cards_hash_map.get(&ranks[i + 4]).unwrap(),
-                ]);
+                for i in (0..=ranks.len() - 5).rev() {
+                    if ranks[i + 4] == ranks[i] + 4 {
+                        let sc = vec![
+                            ranks_map[&ranks[i]].clone(),
+                            ranks_map[&ranks[i + 1]].clone(),
+                            ranks_map[&ranks[i + 2]].clone(),
+                            ranks_map[&ranks[i + 3]].clone(),
+                            ranks_map[&ranks[i + 4]].clone(),
+                        ];
+
+                        // Highest rank in the straight
+                        let high_rank = ranks[i + 4];
+                        let is_royal = high_rank == 14 && ranks[i] == 10;
+
+                        let hand_type = if is_royal {
+                            PokerHands::RoyalFlush
+                        } else {
+                            PokerHands::StraightFlush
+                        };
+
+                        if best_straight_flush.is_none()
+                            || high_rank > best_straight_flush.as_ref().unwrap().1[4].rank.to_int()
+                        {
+                            best_straight_flush = Some((hand_type, sc));
+                            break; // Found highest for this suit
+                        }
+                    }
+                }
             }
         }
 
-        None
+        if let Some((hand, sc)) = best_straight_flush {
+            return (Some(hand), Some(sc));
+        }
+
+        // 2. Check for regular Straight
+        let mut ranks_map = HashMap::new();
+        for card in cards {
+            // Prefer keeping the first card of each rank encountered, 
+            // but for a regular straight the suit doesn't matter.
+            ranks_map.entry(card.rank.to_int()).or_insert(card);
+        }
+        if let Some(&ace_card) = ranks_map.get(&14) {
+            ranks_map.entry(1).or_insert(ace_card);
+        }
+
+        let mut ranks: Vec<u32> = ranks_map.keys().copied().collect();
+        ranks.sort();
+
+        if ranks.len() >= 5 {
+            for i in (0..=ranks.len() - 5).rev() {
+                if ranks[i + 4] == ranks[i] + 4 {
+                    let sc = vec![
+                        ranks_map[&ranks[i]].clone(),
+                        ranks_map[&ranks[i + 1]].clone(),
+                        ranks_map[&ranks[i + 2]].clone(),
+                        ranks_map[&ranks[i + 3]].clone(),
+                        ranks_map[&ranks[i + 4]].clone(),
+                    ];
+                    return (Some(PokerHands::Straight), Some(sc));
+                }
+            }
+        }
+
+        (None, None)
     }
     pub fn is_three_of_a_kind(cards: &[Card; 7]) -> bool {
         use Ranks::*;
@@ -267,18 +320,39 @@ impl PokerHands {
     }
     pub fn get_best_hand(cards: &[Card; 7]) -> (PokerHands, Option<Vec<Card>>) {
         use PokerHands::*;
-        match () {
-            _ if Self::is_royal_flush(cards) => (RoyalFlush, None),
-            _ if Self::is_straight_flush(cards) => (StraightFlush, None),
-            _ if Self::is_four_of_a_kind(cards) => (FourOfAKind, None),
-            _ if Self::is_full_house(cards) => (FullHouse, None),
-            _ if Self::is_flush(cards) => (Flush, None),
-            _ if Self::is_straight(cards).is_some() => (Straight, Self::is_straight(cards)),
-            _ if Self::is_three_of_a_kind(cards) => (ThreeOfAKind, None),
-            _ if Self::is_two_pair(cards) => (TwoPair, None),
-            _ if Self::is_pair(cards) => (Pair, None),
-            _ => (HighCard, Self::is_high_card(cards)),
+
+        let (straight_hand, straight_cards) = Self::check_straights(cards);
+        if let Some(hand) = straight_hand {
+            if hand == RoyalFlush || hand == StraightFlush {
+                return (hand, straight_cards);
+            }
         }
+
+        if Self::is_four_of_a_kind(cards) {
+            return (FourOfAKind, None);
+        }
+        if Self::is_full_house(cards) {
+            return (FullHouse, None);
+        }
+        if Self::is_flush(cards) {
+            return (Flush, None);
+        }
+
+        if let Some(hand) = straight_hand {
+            return (hand, straight_cards);
+        }
+
+        if Self::is_three_of_a_kind(cards) {
+            return (ThreeOfAKind, None);
+        }
+        if Self::is_two_pair(cards) {
+            return (TwoPair, None);
+        }
+        if Self::is_pair(cards) {
+            return (Pair, None);
+        }
+
+        (HighCard, Self::is_high_card(cards))
     }
 }
 
@@ -321,29 +395,32 @@ mod tests {
             },
         ];
         assert!(
-            PokerHands::is_straight(&straight_cards)
-                == Some(vec![
-                    Card {
-                        rank: Six,
-                        suit: Hearts,
-                    },
-                    Card {
-                        rank: Seven,
-                        suit: Spades,
-                    },
-                    Card {
-                        rank: Eight,
-                        suit: Clubs,
-                    },
-                    Card {
-                        rank: Nine,
-                        suit: Diamonds,
-                    },
-                    Card {
-                        rank: Ten,
-                        suit: Hearts,
-                    },
-                ])
+            PokerHands::check_straights(&straight_cards)
+                == (
+                    Some(PokerHands::Straight),
+                    Some(vec![
+                        Card {
+                            rank: Six,
+                            suit: Hearts,
+                        },
+                        Card {
+                            rank: Seven,
+                            suit: Spades,
+                        },
+                        Card {
+                            rank: Eight,
+                            suit: Clubs,
+                        },
+                        Card {
+                            rank: Nine,
+                            suit: Diamonds,
+                        },
+                        Card {
+                            rank: Ten,
+                            suit: Hearts,
+                        },
+                    ])
+                )
         );
 
         let ace_low_straight = [
@@ -377,29 +454,32 @@ mod tests {
             },
         ];
         assert!(
-            PokerHands::is_straight(&ace_low_straight)
-                == Some(vec![
-                    Card {
-                        rank: Ace,
-                        suit: Hearts,
-                    },
-                    Card {
-                        rank: Two,
-                        suit: Diamonds,
-                    },
-                    Card {
-                        rank: Three,
-                        suit: Clubs,
-                    },
-                    Card {
-                        rank: Four,
-                        suit: Spades,
-                    },
-                    Card {
-                        rank: Five,
-                        suit: Hearts,
-                    },
-                ])
+            PokerHands::check_straights(&ace_low_straight)
+                == (
+                    Some(PokerHands::Straight),
+                    Some(vec![
+                        Card {
+                            rank: Ace,
+                            suit: Hearts,
+                        },
+                        Card {
+                            rank: Two,
+                            suit: Diamonds,
+                        },
+                        Card {
+                            rank: Three,
+                            suit: Clubs,
+                        },
+                        Card {
+                            rank: Four,
+                            suit: Spades,
+                        },
+                        Card {
+                            rank: Five,
+                            suit: Hearts,
+                        },
+                    ])
+                )
         );
 
         let not_straight = [
@@ -432,7 +512,7 @@ mod tests {
                 suit: Clubs,
             },
         ];
-        assert!(PokerHands::is_straight(&not_straight).is_none());
+        assert!(PokerHands::check_straights(&not_straight) == (None, None));
         let get_higher_straight = [
             Card {
                 rank: Ace,
@@ -464,29 +544,281 @@ mod tests {
             },
         ];
         assert!(
-            PokerHands::is_straight(&get_higher_straight)
-                == Some(vec![
+            PokerHands::check_straights(&get_higher_straight)
+                == (
+                    Some(PokerHands::Straight),
+                    Some(vec![
+                        Card {
+                            rank: Ten,
+                            suit: Hearts,
+                        },
+                        Card {
+                            rank: Jack,
+                            suit: Spades,
+                        },
+                        Card {
+                            rank: Queen,
+                            suit: Clubs,
+                        },
+                        Card {
+                            rank: King,
+                            suit: Diamonds,
+                        },
+                        Card {
+                            rank: Ace,
+                            suit: Hearts,
+                        },
+                    ])
+                )
+        );
+    }
+    #[test]
+    fn test_straight_flush() {
+        let straight_flush_cards = [
+            Card {
+                rank: Ten,
+                suit: Hearts,
+            },
+            Card {
+                rank: Nine,
+                suit: Hearts,
+            },
+            Card {
+                rank: Eight,
+                suit: Hearts,
+            },
+            Card {
+                rank: Seven,
+                suit: Hearts,
+            },
+            Card {
+                rank: Six,
+                suit: Hearts,
+            },
+            Card {
+                rank: Two,
+                suit: Spades,
+            },
+            Card {
+                rank: Three,
+                suit: Clubs,
+            },
+        ];
+        assert_eq!(
+            PokerHands::check_straights(&straight_flush_cards),
+            (
+                Some(PokerHands::StraightFlush),
+                Some(vec![
+                    Card {
+                        rank: Six,
+                        suit: Hearts
+                    },
+                    Card {
+                        rank: Seven,
+                        suit: Hearts
+                    },
+                    Card {
+                        rank: Eight,
+                        suit: Hearts
+                    },
+                    Card {
+                        rank: Nine,
+                        suit: Hearts
+                    },
                     Card {
                         rank: Ten,
-                        suit: Hearts,
-                    },
-                    Card {
-                        rank: Jack,
-                        suit: Spades,
-                    },
-                    Card {
-                        rank: Queen,
-                        suit: Clubs,
-                    },
-                    Card {
-                        rank: King,
-                        suit: Diamonds,
-                    },
+                        suit: Hearts
+                    }
+                ])
+            )
+        );
+        let ace_low_straight_flush_cards = [
+            Card {
+                rank: Ace,
+                suit: Hearts,
+            },
+            Card {
+                rank: Two,
+                suit: Hearts,
+            },
+            Card {
+                rank: Three,
+                suit: Hearts,
+            },
+            Card {
+                rank: Four,
+                suit: Hearts,
+            },
+            Card {
+                rank: Five,
+                suit: Hearts,
+            },
+            Card {
+                rank: Six,
+                suit: Spades,
+            },
+            Card {
+                rank: Seven,
+                suit: Clubs,
+            },
+        ];
+        assert_eq!(
+            PokerHands::check_straights(&ace_low_straight_flush_cards),
+            (
+                Some(PokerHands::StraightFlush),
+                Some(vec![
                     Card {
                         rank: Ace,
-                        suit: Hearts,
+                        suit: Hearts
                     },
+                    Card {
+                        rank: Two,
+                        suit: Hearts
+                    },
+                    Card {
+                        rank: Three,
+                        suit: Hearts
+                    },
+                    Card {
+                        rank: Four,
+                        suit: Hearts
+                    },
+                    Card {
+                        rank: Five,
+                        suit: Hearts
+                    }
                 ])
+            )
         );
+        let not_straight_flush = [
+            Card {
+                rank: Ace,
+                suit: Hearts,
+            },
+            Card {
+                rank: King,
+                suit: Diamonds,
+            },
+            Card {
+                rank: Queen,
+                suit: Clubs,
+            },
+            Card {
+                rank: Jack,
+                suit: Spades,
+            },
+            Card {
+                rank: Seven,
+                suit: Hearts,
+            },
+            Card {
+                rank: Nine,
+                suit: Spades,
+            },
+            Card {
+                rank: Eight,
+                suit: Clubs,
+            },
+        ];
+        assert_eq!(PokerHands::check_straights(&not_straight_flush), (None, None));
+        let get_higher_straight_flush = [
+            Card {
+                rank: Ten,
+                suit: Hearts,
+            },
+            Card {
+                rank: Nine,
+                suit: Hearts,
+            },
+            Card {
+                rank: Eight,
+                suit: Hearts,
+            },
+            Card {
+                rank: Seven,
+                suit: Hearts,
+            },
+            Card {
+                rank: Six,
+                suit: Hearts,
+            },
+            Card {
+                rank: Five,
+                suit: Hearts,
+            },
+            Card {
+                rank: Four,
+                suit: Hearts,
+            },
+        ];
+        assert_eq!(
+            PokerHands::check_straights(&get_higher_straight_flush),
+            (
+                Some(PokerHands::StraightFlush),
+                Some(vec![
+                    Card {
+                        rank: Six,
+                        suit: Hearts
+                    },
+                    Card {
+                        rank: Seven,
+                        suit: Hearts
+                    },
+                    Card {
+                        rank: Eight,
+                        suit: Hearts
+                    },
+                    Card {
+                        rank: Nine,
+                        suit: Hearts
+                    },
+                    Card {
+                        rank: Ten,
+                        suit: Hearts
+                    }
+                ])
+            )
+        );
+    }
+
+    #[test]
+    fn test_straight_vs_straight_flush() {
+        // Higher Straight (J-high) vs Lower Straight Flush (T-high)
+        let cards = [
+            Card { rank: Jack, suit: Spades },
+            Card { rank: Ten, suit: Hearts },
+            Card { rank: Nine, suit: Hearts },
+            Card { rank: Eight, suit: Hearts },
+            Card { rank: Seven, suit: Hearts },
+            Card { rank: Six, suit: Hearts },
+            Card { rank: Five, suit: Clubs },
+        ];
+        // The T-high straight flush should be found
+        let (hand, sc) = PokerHands::check_straights(&cards);
+        assert_eq!(hand, Some(PokerHands::StraightFlush));
+        let sc = sc.unwrap();
+        assert_eq!(sc[4].rank, Ten);
+        assert_eq!(sc[0].rank, Six);
+        assert!(sc.iter().all(|c| c.suit == Hearts));
+    }
+
+    #[test]
+    fn test_straight_flush_with_extra_suits() {
+        // Straight flush A-2-3-4-5 Hearts, but with extra 3 Spades and 4 Clubs
+        let cards = [
+            Card { rank: Ace, suit: Hearts },
+            Card { rank: Two, suit: Hearts },
+            Card { rank: Three, suit: Hearts },
+            Card { rank: Three, suit: Spades },
+            Card { rank: Four, suit: Hearts },
+            Card { rank: Four, suit: Clubs },
+            Card { rank: Five, suit: Hearts },
+        ];
+        let (hand, sc) = PokerHands::check_straights(&cards);
+        assert_eq!(hand, Some(PokerHands::StraightFlush));
+        let sc = sc.unwrap();
+        assert_eq!(sc[0].rank, Ace);
+        assert_eq!(sc[4].rank, Five);
+        assert!(sc.iter().all(|c| c.suit == Hearts));
     }
 }
