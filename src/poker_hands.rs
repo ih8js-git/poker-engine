@@ -1,4 +1,5 @@
 use crate::card_and_deck::{Card, Ranks, Suits};
+use std::collections::HashMap;
 use std::collections::HashSet;
 
 #[derive(Debug, PartialEq, Eq)]
@@ -162,33 +163,41 @@ impl PokerHands {
 
         false
     }
-    pub fn is_straight(cards: &[Card; 7]) -> bool {
+    pub fn is_straight(cards: &[Card; 7]) -> Option<Vec<Card>> {
         // Convert our 7 cards to their int form using Ranks::to_int
-        let mut ranks: Vec<u32> = cards.iter().map(|card| card.rank.to_int()).collect();
-
-        // Sort and remove duplicates
-        ranks.sort();
-        ranks.dedup();
+        let mut cards_hash_map = HashMap::new();
+        for card in cards {
+            cards_hash_map.insert(card.rank.to_int(), card);
+        }
 
         // Handle Ace-low straight (A, 2, 3, 4, 5)
         // If we have an Ace (14), we also count it as a 1
-        if ranks.contains(&14) {
-            ranks.push(1);
-            ranks.sort();
+        if let Some(&ace_card) = cards_hash_map.get(&14) {
+            cards_hash_map.entry(1).or_insert(ace_card);
         }
+
+        // Get sorted list of unique ranks
+        let mut ranks: Vec<u32> = cards_hash_map.keys().copied().collect();
+        ranks.sort();
 
         if ranks.len() < 5 {
-            return false;
+            return None;
         }
 
-        // Check if we have 5 consecutive numbers
-        for i in 0..=ranks.len() - 5 {
+        // Check if we have 5 consecutive numbers (iterate in reverse to find the highest straight)
+        for i in (0..=ranks.len() - 5).rev() {
             if ranks[i + 4] == ranks[i] + 4 {
-                return true;
+                return Some(vec![
+                    **cards_hash_map.get(&ranks[i]).unwrap(),
+                    **cards_hash_map.get(&ranks[i + 1]).unwrap(),
+                    **cards_hash_map.get(&ranks[i + 2]).unwrap(),
+                    **cards_hash_map.get(&ranks[i + 3]).unwrap(),
+                    **cards_hash_map.get(&ranks[i + 4]).unwrap(),
+                ]);
             }
         }
 
-        false
+        None
     }
     pub fn is_three_of_a_kind(cards: &[Card; 7]) -> bool {
         use Ranks::*;
@@ -242,7 +251,7 @@ impl PokerHands {
         }
         false
     }
-    pub fn is_high_card(cards: &[Card; 7]) -> Option<Card> {
+    pub fn is_high_card(cards: &[Card; 7]) -> Option<Vec<Card>> {
         let mut high_card = None;
         for card in cards {
             match &high_card {
@@ -254,9 +263,9 @@ impl PokerHands {
                 }
             }
         }
-        high_card
+        high_card.map(|card| vec![card])
     }
-    pub fn get_best_hand(cards: &[Card; 7]) -> (PokerHands, Option<Card>) {
+    pub fn get_best_hand(cards: &[Card; 7]) -> (PokerHands, Option<Vec<Card>>) {
         use PokerHands::*;
         match () {
             _ if Self::is_royal_flush(cards) => (RoyalFlush, None),
@@ -264,7 +273,7 @@ impl PokerHands {
             _ if Self::is_four_of_a_kind(cards) => (FourOfAKind, None),
             _ if Self::is_full_house(cards) => (FullHouse, None),
             _ if Self::is_flush(cards) => (Flush, None),
-            _ if Self::is_straight(cards) => (Straight, None),
+            _ if Self::is_straight(cards).is_some() => (Straight, Self::is_straight(cards)),
             _ if Self::is_three_of_a_kind(cards) => (ThreeOfAKind, None),
             _ if Self::is_two_pair(cards) => (TwoPair, None),
             _ if Self::is_pair(cards) => (Pair, None),
@@ -769,7 +778,7 @@ mod tests {
                 suit: Clubs,
             },
         ];
-        assert!(PokerHands::is_straight(&straight_cards));
+        assert!(PokerHands::is_straight(&straight_cards).is_some());
 
         let ace_low_straight = [
             Card {
@@ -801,7 +810,7 @@ mod tests {
                 suit: Clubs,
             },
         ];
-        assert!(PokerHands::is_straight(&ace_low_straight));
+        assert!(PokerHands::is_straight(&ace_low_straight).is_some());
 
         let not_straight = [
             Card {
@@ -833,6 +842,6 @@ mod tests {
                 suit: Clubs,
             },
         ];
-        assert!(!PokerHands::is_straight(&not_straight));
+        assert!(PokerHands::is_straight(&not_straight).is_none());
     }
 }

@@ -8,11 +8,13 @@ fn test_get_best_hand_with_random_cards() {
     let deck = Card::new_deck();
     let mut deck_vec: Vec<Card> = deck.into();
     deck_vec.shuffle(&mut rng);
-    
+
     // Take 7 random cards
     let cards_vec: Vec<Card> = deck_vec.into_iter().take(7).collect();
-    let cards: [Card; 7] = cards_vec.try_into().expect("Failed to get 7 cards from deck");
-    
+    let cards: [Card; 7] = cards_vec
+        .try_into()
+        .expect("Failed to get 7 cards from deck");
+
     println!("\nGenerated 7 random cards:");
     for (i, card) in cards.iter().enumerate() {
         print!("{}", card);
@@ -21,10 +23,16 @@ fn test_get_best_hand_with_random_cards() {
         }
     }
     println!();
-    
-    let (best_hand, high_card) = PokerHands::get_best_hand(&cards);
+
+    let (best_hand, cards_found) = PokerHands::get_best_hand(&cards);
     println!("Best hand found: {}", best_hand);
-    if let Some(card) = high_card {
-        println!("High card: {}", card);
+    if let Some(cards) = cards_found {
+        for (i, card) in cards.iter().enumerate() {
+            print!("{}", card);
+            if i < cards.len() - 1 {
+                print!(", ");
+            }
+        }
+        println!();
     }
 }
