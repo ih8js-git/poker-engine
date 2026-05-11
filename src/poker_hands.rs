@@ -1,6 +1,5 @@
 use crate::card_and_deck::{Card, Ranks, Suits};
 use std::collections::HashMap;
-use std::collections::HashSet;
 
 #[derive(Debug, PartialEq, Eq, Copy, Clone)]
 pub enum PokerHands {
@@ -35,89 +34,39 @@ impl std::fmt::Display for PokerHands {
 }
 
 impl PokerHands {
-    // This function looks super wasteful, but because of edge cases
-    // this is the best way I've found to do it
-    pub fn is_royal_flush(cards: &[Card; 7]) -> bool {
-        use Ranks::*;
-        use Suits::*;
+    pub fn check_dupes_of_a_kind(cards: &[Card; 7]) -> (Option<PokerHands>, Option<Vec<Card>>) {
+        let mut rank_counts = HashMap::new();
+        for card in cards {
+            rank_counts
+                .entry(card.rank)
+                .or_insert(Vec::new())
+                .push(card.clone());
+        }
 
-        for suit in [Hearts, Diamonds, Clubs, Spades] {
-            let mut has_ten = false;
-            let mut has_jack = false;
-            let mut has_queen = false;
-            let mut has_king = false;
-            let mut has_ace = false;
+        for count in [4, 3, 2] {
+            let mut best_rank: Option<Ranks> = None;
+            let mut best_cards: Option<Vec<Card>> = None;
 
-            for card in cards {
-                if card.suit == suit {
-                    match card.rank {
-                        Ten => has_ten = true,
-                        Jack => has_jack = true,
-                        Queen => has_queen = true,
-                        King => has_king = true,
-                        Ace => has_ace = true,
-                        _ => {}
+            for (rank, matching_cards) in &rank_counts {
+                if matching_cards.len() == count {
+                    if best_rank.is_none() || rank.to_int() > best_rank.as_ref().unwrap().to_int() {
+                        best_rank = Some(*rank);
+                        best_cards = Some(matching_cards.clone());
                     }
                 }
             }
 
-            if has_ten && has_jack && has_queen && has_king && has_ace {
-                return true;
+            if let Some(cards) = best_cards {
+                let hand = match count {
+                    4 => PokerHands::FourOfAKind,
+                    3 => PokerHands::ThreeOfAKind,
+                    2 => PokerHands::Pair,
+                    _ => unreachable!(),
+                };
+                return (Some(hand), Some(cards));
             }
         }
-
-        false
-    }
-    pub fn is_straight_flush(cards: &[Card; 7]) -> bool {
-        let mut ranks: Vec<u32> = cards.iter().map(|card| card.rank.to_int()).collect();
-        ranks.sort();
-        ranks.dedup();
-
-        // Handle Ace-low straight (A, 2, 3, 4, 5)
-        // If we have an Ace (14), we also count it as a 1
-        if ranks.contains(&14) {
-            ranks.push(1);
-            ranks.sort();
-        }
-
-        if ranks.len() < 5 {
-            return false;
-        }
-
-        // Check if we have 5 consecutive numbers
-        for i in 0..=ranks.len() - 5 {
-            if ranks[i + 4] == ranks[i] + 4 {
-                // Check if those 5 consecutive numbers are all the same suit
-                let mut suits = HashSet::new();
-                for card in cards {
-                    if card.rank.to_int() >= ranks[i] && card.rank.to_int() <= ranks[i + 4] {
-                        suits.insert(card.suit);
-                    }
-                }
-                if suits.len() == 1 {
-                    return true;
-                }
-            }
-        }
-
-        false
-    }
-    pub fn is_four_of_a_kind(cards: &[Card; 7]) -> bool {
-        use Ranks::*;
-        for rank in [
-            Ace, King, Queen, Jack, Ten, Nine, Eight, Seven, Six, Five, Four, Three, Two,
-        ] {
-            let mut count = 0;
-            for card in cards {
-                if card.rank == rank {
-                    count += 1;
-                }
-            }
-            if count == 4 {
-                return true;
-            }
-        }
-        false
+        (None, None)
     }
     pub fn is_full_house(cards: &[Card; 7]) -> bool {
         use Ranks::*;
@@ -224,7 +173,7 @@ impl PokerHands {
         // 2. Check for regular Straight
         let mut ranks_map = HashMap::new();
         for card in cards {
-            // Prefer keeping the first card of each rank encountered, 
+            // Prefer keeping the first card of each rank encountered,
             // but for a regular straight the suit doesn't matter.
             ranks_map.entry(card.rank.to_int()).or_insert(card);
         }
@@ -252,23 +201,6 @@ impl PokerHands {
 
         (None, None)
     }
-    pub fn is_three_of_a_kind(cards: &[Card; 7]) -> bool {
-        use Ranks::*;
-        for rank in [
-            Ace, King, Queen, Jack, Ten, Nine, Eight, Seven, Six, Five, Four, Three, Two,
-        ] {
-            let mut count = 0;
-            for card in cards {
-                if card.rank == rank {
-                    count += 1;
-                }
-            }
-            if count == 3 {
-                return true;
-            }
-        }
-        false
-    }
     pub fn is_two_pair(cards: &[Card; 7]) -> bool {
         use Ranks::*;
         let mut pairs_found = 0;
@@ -286,23 +218,6 @@ impl PokerHands {
             }
         }
         pairs_found >= 2
-    }
-    pub fn is_pair(cards: &[Card; 7]) -> bool {
-        use Ranks::*;
-        for rank in [
-            Ace, King, Queen, Jack, Ten, Nine, Eight, Seven, Six, Five, Four, Three, Two,
-        ] {
-            let mut count = 0;
-            for card in cards {
-                if card.rank == rank {
-                    count += 1;
-                }
-            }
-            if count == 2 {
-                return true;
-            }
-        }
-        false
     }
     pub fn is_high_card(cards: &[Card; 7]) -> Option<Vec<Card>> {
         let mut high_card = None;
@@ -328,8 +243,9 @@ impl PokerHands {
             }
         }
 
-        if Self::is_four_of_a_kind(cards) {
-            return (FourOfAKind, None);
+        let (dupe_hand, dupe_cards) = Self::check_dupes_of_a_kind(cards);
+        if let Some(FourOfAKind) = dupe_hand {
+            return (FourOfAKind, dupe_cards);
         }
         if Self::is_full_house(cards) {
             return (FullHouse, None);
@@ -342,14 +258,14 @@ impl PokerHands {
             return (hand, straight_cards);
         }
 
-        if Self::is_three_of_a_kind(cards) {
-            return (ThreeOfAKind, None);
+        if let Some(ThreeOfAKind) = dupe_hand {
+            return (ThreeOfAKind, dupe_cards);
         }
         if Self::is_two_pair(cards) {
             return (TwoPair, None);
         }
-        if Self::is_pair(cards) {
-            return (Pair, None);
+        if let Some(Pair) = dupe_hand {
+            return (Pair, dupe_cards);
         }
 
         (HighCard, Self::is_high_card(cards))
@@ -720,7 +636,10 @@ mod tests {
                 suit: Clubs,
             },
         ];
-        assert_eq!(PokerHands::check_straights(&not_straight_flush), (None, None));
+        assert_eq!(
+            PokerHands::check_straights(&not_straight_flush),
+            (None, None)
+        );
         let get_higher_straight_flush = [
             Card {
                 rank: Ten,
@@ -785,13 +704,34 @@ mod tests {
     fn test_straight_vs_straight_flush() {
         // Higher Straight (J-high) vs Lower Straight Flush (T-high)
         let cards = [
-            Card { rank: Jack, suit: Spades },
-            Card { rank: Ten, suit: Hearts },
-            Card { rank: Nine, suit: Hearts },
-            Card { rank: Eight, suit: Hearts },
-            Card { rank: Seven, suit: Hearts },
-            Card { rank: Six, suit: Hearts },
-            Card { rank: Five, suit: Clubs },
+            Card {
+                rank: Jack,
+                suit: Spades,
+            },
+            Card {
+                rank: Ten,
+                suit: Hearts,
+            },
+            Card {
+                rank: Nine,
+                suit: Hearts,
+            },
+            Card {
+                rank: Eight,
+                suit: Hearts,
+            },
+            Card {
+                rank: Seven,
+                suit: Hearts,
+            },
+            Card {
+                rank: Six,
+                suit: Hearts,
+            },
+            Card {
+                rank: Five,
+                suit: Clubs,
+            },
         ];
         // The T-high straight flush should be found
         let (hand, sc) = PokerHands::check_straights(&cards);
@@ -806,13 +746,34 @@ mod tests {
     fn test_straight_flush_with_extra_suits() {
         // Straight flush A-2-3-4-5 Hearts, but with extra 3 Spades and 4 Clubs
         let cards = [
-            Card { rank: Ace, suit: Hearts },
-            Card { rank: Two, suit: Hearts },
-            Card { rank: Three, suit: Hearts },
-            Card { rank: Three, suit: Spades },
-            Card { rank: Four, suit: Hearts },
-            Card { rank: Four, suit: Clubs },
-            Card { rank: Five, suit: Hearts },
+            Card {
+                rank: Ace,
+                suit: Hearts,
+            },
+            Card {
+                rank: Two,
+                suit: Hearts,
+            },
+            Card {
+                rank: Three,
+                suit: Hearts,
+            },
+            Card {
+                rank: Three,
+                suit: Spades,
+            },
+            Card {
+                rank: Four,
+                suit: Hearts,
+            },
+            Card {
+                rank: Four,
+                suit: Clubs,
+            },
+            Card {
+                rank: Five,
+                suit: Hearts,
+            },
         ];
         let (hand, sc) = PokerHands::check_straights(&cards);
         assert_eq!(hand, Some(PokerHands::StraightFlush));
