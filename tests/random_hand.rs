@@ -22,6 +22,9 @@ fn test_get_best_hand_with_random_cards() {
     }
     println!();
     
-    let best_hand = PokerHands::get_best_hand(&cards);
+    let (best_hand, high_card) = PokerHands::get_best_hand(&cards);
     println!("Best hand found: {}", best_hand);
+    if let Some(card) = high_card {
+        println!("High card: {}", card);
+    }
 }

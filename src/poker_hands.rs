@@ -33,7 +33,6 @@ impl std::fmt::Display for PokerHands {
     }
 }
 
-
 impl PokerHands {
     // This function looks super wasteful, but because of edge cases
     // this is the best way I've found to do it
@@ -243,19 +242,33 @@ impl PokerHands {
         }
         false
     }
-    pub fn get_best_hand(cards: &[Card; 7]) -> PokerHands {
+    pub fn is_high_card(cards: &[Card; 7]) -> Option<Card> {
+        let mut high_card = None;
+        for card in cards {
+            match &high_card {
+                None => high_card = Some(card.clone()),
+                Some(c) => {
+                    if card.rank.to_int() > c.rank.to_int() {
+                        high_card = Some(card.clone());
+                    }
+                }
+            }
+        }
+        high_card
+    }
+    pub fn get_best_hand(cards: &[Card; 7]) -> (PokerHands, Option<Card>) {
         use PokerHands::*;
         match () {
-            _ if Self::is_royal_flush(cards) => RoyalFlush,
-            _ if Self::is_straight_flush(cards) => StraightFlush,
-            _ if Self::is_four_of_a_kind(cards) => FourOfAKind,
-            _ if Self::is_full_house(cards) => FullHouse,
-            _ if Self::is_flush(cards) => Flush,
-            _ if Self::is_straight(cards) => Straight,
-            _ if Self::is_three_of_a_kind(cards) => ThreeOfAKind,
-            _ if Self::is_two_pair(cards) => TwoPair,
-            _ if Self::is_pair(cards) => Pair,
-            _ => HighCard,
+            _ if Self::is_royal_flush(cards) => (RoyalFlush, None),
+            _ if Self::is_straight_flush(cards) => (StraightFlush, None),
+            _ if Self::is_four_of_a_kind(cards) => (FourOfAKind, None),
+            _ if Self::is_full_house(cards) => (FullHouse, None),
+            _ if Self::is_flush(cards) => (Flush, None),
+            _ if Self::is_straight(cards) => (Straight, None),
+            _ if Self::is_three_of_a_kind(cards) => (ThreeOfAKind, None),
+            _ if Self::is_two_pair(cards) => (TwoPair, None),
+            _ if Self::is_pair(cards) => (Pair, None),
+            _ => (HighCard, Self::is_high_card(cards)),
         }
     }
 }
