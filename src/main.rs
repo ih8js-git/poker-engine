@@ -167,8 +167,8 @@ fn main() {
             GamePhases::Showdown => {
                 println!("\n{}", "--- Showdown ---".bright_yellow().bold());
                 // Check win
-                let mut winner_and_best_hand: Option<(u8, PokerHands, Vec<Card>, String)> = None;
-                for player in players.iter_mut() {
+                let mut winner_and_best_hand: Option<(u8, PokerHands, Vec<Card>, usize)> = None;
+                for (index, player) in players.iter().enumerate() {
                     if !player.hand.is_empty() {
                         let available_cards: [Card; 7] = player
                             .hand
@@ -183,17 +183,16 @@ fn main() {
                         if winner_and_best_hand.is_none()
                             || hand_type.hands_to_int() > winner_and_best_hand.as_ref().unwrap().0
                         {
-                            winner_and_best_hand = Some((
-                                hand_type.hands_to_int(),
-                                hand_type,
-                                hand_cards,
-                                player.name.clone(),
-                            ));
+                            winner_and_best_hand =
+                                Some((hand_type.hands_to_int(), hand_type, hand_cards, index));
                         }
                     }
                 }
-                if let Some((_, hand_type, cards, player_name)) = winner_and_best_hand {
-                    println!("\n{} wins with a {}", player_name, hand_type);
+                if let Some((_, hand_type, cards, winner_index)) = winner_and_best_hand {
+                    println!(
+                        "\n{} wins a {} chip pot with a {}",
+                        players[winner_index].name, pot, hand_type
+                    );
                     for (i, card) in cards.iter().enumerate() {
                         print!("{}", card);
                         if i < cards.len() - 1 {
@@ -201,6 +200,9 @@ fn main() {
                         }
                     }
                     println!();
+                    // Add pot to winner's chips
+                    players[winner_index].chips += pot;
+                    pot = 0;
                 }
                 // Break the loop as the round is over
                 break;
