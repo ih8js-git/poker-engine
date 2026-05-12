@@ -2,6 +2,7 @@ use poker_engine::card_and_deck::{Card, Deck};
 use poker_engine::player::{GamePhases, MINIMUM_BET, Player, TablePositions};
 
 use owo_colors::OwoColorize;
+use poker_engine::poker_hands::PokerHands;
 use rand;
 use rand::prelude::SliceRandom;
 use std::collections::VecDeque;
@@ -165,6 +166,44 @@ fn main() {
             }
             GamePhases::Showdown => {
                 println!("\n{}", "--- Showdown ---".bright_yellow().bold());
+                // Check win
+                let mut winner_and_best_hand: Option<(u8, PokerHands, Vec<Card>, String)> = None;
+                for player in players.iter_mut() {
+                    if !player.hand.is_empty() {
+                        let available_cards: [Card; 7] = player
+                            .hand
+                            .iter()
+                            .chain(community_cards.iter())
+                            .cloned()
+                            .collect::<Vec<Card>>()
+                            .try_into()
+                            .expect("Expected exactly 7 cards");
+                        let (hand_type, hand_cards) = PokerHands::get_best_hand(&available_cards);
+                        let hand_cards = hand_cards.unwrap_or_default();
+                        if winner_and_best_hand.is_none()
+                            || hand_type.hands_to_int() > winner_and_best_hand.as_ref().unwrap().0
+                        {
+                            winner_and_best_hand = Some((
+                                hand_type.hands_to_int(),
+                                hand_type,
+                                hand_cards,
+                                player.name.clone(),
+                            ));
+                        }
+                    }
+                }
+                if let Some((_, hand_type, cards, player_name)) = winner_and_best_hand {
+                    println!("\n{} wins with a {:?}", player_name, hand_type,);
+                    for (i, card) in cards.iter().enumerate() {
+                        print!("{}", card);
+                        if i < cards.len() - 1 {
+                            print!(", ");
+                        }
+                    }
+                    println!();
+                }
+                // Break the loop as the round is over
+                break;
             }
         }
 

@@ -34,6 +34,20 @@ impl std::fmt::Display for PokerHands {
 }
 
 impl PokerHands {
+    pub fn hands_to_int(&self) -> u8 {
+        match self {
+            PokerHands::RoyalFlush => 10,
+            PokerHands::StraightFlush => 9,
+            PokerHands::FourOfAKind => 8,
+            PokerHands::FullHouse => 7,
+            PokerHands::Flush => 6,
+            PokerHands::Straight => 5,
+            PokerHands::ThreeOfAKind => 4,
+            PokerHands::TwoPair => 3,
+            PokerHands::Pair => 2,
+            PokerHands::HighCard => 1,
+        }
+    }
     pub fn check_dupes_of_a_kind(cards: &[Card; 7]) -> (Option<PokerHands>, Option<Vec<Card>>) {
         let mut rank_counts = HashMap::new();
         for card in cards {
