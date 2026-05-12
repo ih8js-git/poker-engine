@@ -269,5 +269,10 @@ fn main() {
                 round_over = true;
             }
         }
+
+        current_highest_bet = 0;
+        for player in players.iter_mut() {
+            player.player_current_bet = 0;
+        }
     }
 }
