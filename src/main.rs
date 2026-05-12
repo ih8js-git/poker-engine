@@ -172,6 +172,13 @@ fn main() {
         let mut round_over = false;
 
         while !round_over {
+            if players[current_index].hand.is_empty() {
+                current_index = (current_index + 1) % players.len();
+                if current_index == (player_forcing_action_index + 1) % players.len() {
+                    round_over = true;
+                }
+                continue;
+            }
             let player_name = players[current_index].name.clone();
 
             println!("\n{}'s turn to act", player_name);
@@ -207,7 +214,11 @@ fn main() {
                             &mut current_highest_bet,
                             &mut pot,
                         );
-                        player_forcing_action_index = current_index;
+                        player_forcing_action_index = if current_index == 0 {
+                            players.len() - 1
+                        } else {
+                            current_index - 1
+                        };
                         action_is_valid = true;
                     }
                     _ => println!("\nInvalid action!\n"),
@@ -215,7 +226,7 @@ fn main() {
             }
 
             current_index = (current_index + 1) % players.len();
-            if current_index == player_forcing_action_index {
+            if current_index == (player_forcing_action_index + 1) % players.len() {
                 round_over = true;
             }
         }
