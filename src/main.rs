@@ -63,7 +63,6 @@ fn get_userinput_raise(player: &mut Player, current_highest_bet: &mut u32, pot: 
 
 fn main() {
     let mut rng = rand::rng();
-    let deck = Card::new_deck();
     let mut discard_pile = Vec::<Card>::with_capacity(10);
     let mut community_cards: Vec<Card> = Vec::with_capacity(5);
     let number_of_players = rand::random_range(3..=6);
@@ -83,198 +82,226 @@ fn main() {
         ));
     }
 
-    let mut deck_vec: Vec<Card> = deck.into();
-    deck_vec.shuffle(&mut rng);
-    let mut deck = VecDeque::from(deck_vec);
+    loop {
+        let deck = Card::new_deck();
+        let mut deck_vec: Vec<Card> = deck.into();
+        deck_vec.shuffle(&mut rng);
+        let mut deck = VecDeque::from(deck_vec);
 
-    deal(&mut deck, &mut players);
+        for player in players.iter_mut() {
+            player.hand.clear();
+        }
+        community_cards.clear();
+        discard_pile.clear();
 
-    let mut pot: u32 = 0;
-    let mut current_highest_bet: u32 = 0;
+        deal(&mut deck, &mut players);
 
-    let game_phase: GamePhases = GamePhases::PreFlop;
+        let mut pot: u32 = 0;
+        let mut current_highest_bet: u32 = 0;
 
-    let mut player_forcing_action_index: Option<usize> = None;
+        let game_phase: GamePhases = GamePhases::PreFlop;
 
-    for (index, player) in players.iter_mut().enumerate() {
-        if game_phase == GamePhases::PreFlop {
-            if player.position == TablePositions::SmallBlind {
-                player.player_current_bet = SMALL_BLIND_AMOUNT;
-                player.chips -= SMALL_BLIND_AMOUNT;
-                pot += SMALL_BLIND_AMOUNT;
-                current_highest_bet = SMALL_BLIND_AMOUNT;
-                player_forcing_action_index = Some(index);
-                println!(
-                    "{} (Small Blind) posts {}",
-                    player.name, player.player_current_bet
-                );
-            } else if player.position == TablePositions::BigBlind {
-                player.player_current_bet = BIG_BLIND_AMOUNT;
-                player.chips -= BIG_BLIND_AMOUNT;
-                pot += BIG_BLIND_AMOUNT;
-                current_highest_bet = BIG_BLIND_AMOUNT;
-                player_forcing_action_index = Some(index);
-                println!("{} (Big Blind) posts {}", player.name, BIG_BLIND_AMOUNT);
-            } else {
-                println!("{} {} posts {}", player.name, player.position, 0);
+        let mut player_forcing_action_index: Option<usize> = None;
+
+        for (index, player) in players.iter_mut().enumerate() {
+            if game_phase == GamePhases::PreFlop {
+                if player.position == TablePositions::SmallBlind {
+                    player.player_current_bet = SMALL_BLIND_AMOUNT;
+                    player.chips -= SMALL_BLIND_AMOUNT;
+                    pot += SMALL_BLIND_AMOUNT;
+                    current_highest_bet = SMALL_BLIND_AMOUNT;
+                    player_forcing_action_index = Some(index);
+                    println!(
+                        "{} (Small Blind) posts {}",
+                        player.name, player.player_current_bet
+                    );
+                } else if player.position == TablePositions::BigBlind {
+                    player.player_current_bet = BIG_BLIND_AMOUNT;
+                    player.chips -= BIG_BLIND_AMOUNT;
+                    pot += BIG_BLIND_AMOUNT;
+                    current_highest_bet = BIG_BLIND_AMOUNT;
+                    player_forcing_action_index = Some(index);
+                    println!("{} (Big Blind) posts {}", player.name, BIG_BLIND_AMOUNT);
+                } else {
+                    println!("{} {} posts {}", player.name, player.position, 0);
+                }
             }
         }
-    }
 
-    let mut player_forcing_action_index =
-        player_forcing_action_index.expect("Player forcing action not found!");
+        let mut player_forcing_action_index =
+            player_forcing_action_index.expect("Player forcing action not found!");
 
-    for phase in [
-        GamePhases::PreFlop,
-        GamePhases::Flop,
-        GamePhases::Turn,
-        GamePhases::River,
-        GamePhases::Showdown,
-    ] {
-        match phase {
-            GamePhases::PreFlop => {
-                println!("\n{}", "--- Pre-Flop ---".bright_yellow().bold());
-            }
-            GamePhases::Flop => {
-                println!("\n{}", "--- Flop ---".bright_yellow().bold());
-                for _ in 0..3 {
-                    community_cards.push(deck.pop_front().unwrap());
+        for phase in [
+            GamePhases::PreFlop,
+            GamePhases::Flop,
+            GamePhases::Turn,
+            GamePhases::River,
+            GamePhases::Showdown,
+        ] {
+            match phase {
+                GamePhases::PreFlop => {
+                    println!("\n{}", "--- Pre-Flop ---".bright_yellow().bold());
                 }
-                print!("Community cards: ");
-                for card in &community_cards {
-                    print!("{} ", card);
-                }
-                println!();
-            }
-            GamePhases::Turn => {
-                println!("\n{}", "--- Turn ---".bright_yellow().bold());
-                community_cards.push(deck.pop_front().unwrap());
-                print!("Community cards: ");
-                for card in &community_cards {
-                    print!("{} ", card);
-                }
-                println!();
-            }
-            GamePhases::River => {
-                println!("\n{}", "--- River ---".bright_yellow().bold());
-                community_cards.push(deck.pop_front().unwrap());
-                print!("Community cards: ");
-                for card in &community_cards {
-                    print!("{} ", card);
-                }
-                println!();
-            }
-            GamePhases::Showdown => {
-                println!("\n{}", "--- Showdown ---".bright_yellow().bold());
-                // Check win
-                let mut winner_and_best_hand: Option<(u8, PokerHands, Vec<Card>, usize)> = None;
-                for (index, player) in players.iter().enumerate() {
-                    if !player.hand.is_empty() {
-                        let available_cards: [Card; 7] = player
-                            .hand
-                            .iter()
-                            .chain(community_cards.iter())
-                            .cloned()
-                            .collect::<Vec<Card>>()
-                            .try_into()
-                            .expect("Expected exactly 7 cards");
-                        let (hand_type, hand_cards) = PokerHands::get_best_hand(&available_cards);
-                        let hand_cards = hand_cards.unwrap_or_default();
-                        if winner_and_best_hand.is_none()
-                            || hand_type.hands_to_int() > winner_and_best_hand.as_ref().unwrap().0
-                        {
-                            winner_and_best_hand =
-                                Some((hand_type.hands_to_int(), hand_type, hand_cards, index));
-                        }
+                GamePhases::Flop => {
+                    println!("\n{}", "--- Flop ---".bright_yellow().bold());
+                    for _ in 0..3 {
+                        community_cards.push(deck.pop_front().unwrap());
                     }
-                }
-                if let Some((_, hand_type, cards, winner_index)) = winner_and_best_hand {
-                    println!(
-                        "\n{} wins a {} chip pot with a {}",
-                        players[winner_index].name, pot, hand_type
-                    );
-                    for (i, card) in cards.iter().enumerate() {
-                        print!("{}", card);
-                        if i < cards.len() - 1 {
-                            print!(", ");
-                        }
+                    print!("Community cards: ");
+                    for card in &community_cards {
+                        print!("{} ", card);
                     }
                     println!();
-                    // Add pot to winner's chips
-                    players[winner_index].chips += pot;
-                    pot = 0;
                 }
-                // Break the loop as the round is over
+                GamePhases::Turn => {
+                    println!("\n{}", "--- Turn ---".bright_yellow().bold());
+                    community_cards.push(deck.pop_front().unwrap());
+                    print!("Community cards: ");
+                    for card in &community_cards {
+                        print!("{} ", card);
+                    }
+                    println!();
+                }
+                GamePhases::River => {
+                    println!("\n{}", "--- River ---".bright_yellow().bold());
+                    community_cards.push(deck.pop_front().unwrap());
+                    print!("Community cards: ");
+                    for card in &community_cards {
+                        print!("{} ", card);
+                    }
+                    println!();
+                }
+                GamePhases::Showdown => {
+                    println!("\n{}", "--- Showdown ---".bright_yellow().bold());
+                    // Check win
+                    let mut winner_and_best_hand: Option<(u8, PokerHands, Vec<Card>, usize)> = None;
+                    for (index, player) in players.iter().enumerate() {
+                        if !player.hand.is_empty() {
+                            let available_cards: [Card; 7] = player
+                                .hand
+                                .iter()
+                                .chain(community_cards.iter())
+                                .cloned()
+                                .collect::<Vec<Card>>()
+                                .try_into()
+                                .expect("Expected exactly 7 cards");
+                            let (hand_type, hand_cards) =
+                                PokerHands::get_best_hand(&available_cards);
+                            let hand_cards = hand_cards.unwrap_or_default();
+                            if winner_and_best_hand.is_none()
+                                || hand_type.hands_to_int()
+                                    > winner_and_best_hand.as_ref().unwrap().0
+                            {
+                                winner_and_best_hand =
+                                    Some((hand_type.hands_to_int(), hand_type, hand_cards, index));
+                            }
+                        }
+                    }
+                    if let Some((_, hand_type, cards, winner_index)) = winner_and_best_hand {
+                        println!(
+                            "\n{} wins a {} chip pot with a {}",
+                            players[winner_index].name, pot, hand_type
+                        );
+                        for (i, card) in cards.iter().enumerate() {
+                            print!("{}", card);
+                            if i < cards.len() - 1 {
+                                print!(", ");
+                            }
+                        }
+                        println!();
+                        // Add pot to winner's chips
+                        players[winner_index].chips += pot;
+                        pot = 0;
+                    }
+                }
+            }
+
+            if phase == GamePhases::Showdown {
                 break;
             }
-        }
 
-        let mut current_index = (player_forcing_action_index + 1) % players.len();
-        let mut round_over = false;
+            let mut current_index = (player_forcing_action_index + 1) % players.len();
+            let mut round_over = false;
 
-        while !round_over {
-            if players[current_index].hand.is_empty() {
+            while !round_over {
+                if players[current_index].hand.is_empty() {
+                    current_index = (current_index + 1) % players.len();
+                    if current_index == (player_forcing_action_index + 1) % players.len() {
+                        round_over = true;
+                    }
+                    continue;
+                }
+                let player_name = players[current_index].name.clone();
+
+                println!("\n{}'s turn to act", player_name);
+                println!(
+                    "Your hand: {} and {}",
+                    players[current_index].hand[0], players[current_index].hand[1],
+                );
+                println!("You currently have {} chips.", players[current_index].chips);
+                println!("Pot size: {}", pot);
+                println!("Current bet: {}", current_highest_bet);
+
+                let mut action_is_valid = false;
+                while !action_is_valid {
+                    let action = get_userinput_action(
+                        &player_name,
+                        players[current_index].player_current_bet,
+                        current_highest_bet,
+                    );
+                    match action.as_str() {
+                        "1" => {
+                            players[current_index].fold(&mut discard_pile);
+                            action_is_valid = true;
+                        }
+                        "2" => {
+                            players[current_index]
+                                .call(&mut current_highest_bet, &mut pot)
+                                .expect("Failed to call");
+                            action_is_valid = true;
+                        }
+                        "3" => {
+                            get_userinput_raise(
+                                &mut players[current_index],
+                                &mut current_highest_bet,
+                                &mut pot,
+                            );
+                            player_forcing_action_index = if current_index == 0 {
+                                players.len() - 1
+                            } else {
+                                current_index - 1
+                            };
+                            action_is_valid = true;
+                        }
+                        _ => println!("\nInvalid action!\n"),
+                    }
+                }
+
                 current_index = (current_index + 1) % players.len();
                 if current_index == (player_forcing_action_index + 1) % players.len() {
                     round_over = true;
                 }
-                continue;
-            }
-            let player_name = players[current_index].name.clone();
-
-            println!("\n{}'s turn to act", player_name);
-            println!(
-                "Your hand: {} and {}",
-                players[current_index].hand[0], players[current_index].hand[1],
-            );
-            println!("You currently have {} chips.", players[current_index].chips);
-            println!("Pot size: {}", pot);
-            println!("Current bet: {}", current_highest_bet);
-
-            let mut action_is_valid = false;
-            while !action_is_valid {
-                let action = get_userinput_action(
-                    &player_name,
-                    players[current_index].player_current_bet,
-                    current_highest_bet,
-                );
-                match action.as_str() {
-                    "1" => {
-                        players[current_index].fold(&mut discard_pile);
-                        action_is_valid = true;
-                    }
-                    "2" => {
-                        players[current_index]
-                            .call(&mut current_highest_bet, &mut pot)
-                            .expect("Failed to call");
-                        action_is_valid = true;
-                    }
-                    "3" => {
-                        get_userinput_raise(
-                            &mut players[current_index],
-                            &mut current_highest_bet,
-                            &mut pot,
-                        );
-                        player_forcing_action_index = if current_index == 0 {
-                            players.len() - 1
-                        } else {
-                            current_index - 1
-                        };
-                        action_is_valid = true;
-                    }
-                    _ => println!("\nInvalid action!\n"),
-                }
             }
 
-            current_index = (current_index + 1) % players.len();
-            if current_index == (player_forcing_action_index + 1) % players.len() {
-                round_over = true;
+            current_highest_bet = 0;
+            for player in players.iter_mut() {
+                player.player_current_bet = 0;
             }
         }
 
-        current_highest_bet = 0;
-        for player in players.iter_mut() {
-            player.player_current_bet = 0;
+        // At the end of the round, rotate the table positions.
+        println!("Moving the dealer button...");
+        let first_player = players.remove(0);
+        players.push(first_player);
+
+        // Update positions based on the new order
+        for (i, player) in players.iter_mut().enumerate() {
+            player.position = match i {
+                0 => TablePositions::Button,
+                1 => TablePositions::SmallBlind,
+                2 => TablePositions::BigBlind,
+                _ => TablePositions::Standard,
+            };
         }
     }
 }
