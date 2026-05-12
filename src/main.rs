@@ -193,7 +193,7 @@ fn main() {
                     }
                 }
                 if let Some((_, hand_type, cards, player_name)) = winner_and_best_hand {
-                    println!("\n{} wins with a {:?}", player_name, hand_type,);
+                    println!("\n{} wins with a {}", player_name, hand_type);
                     for (i, card) in cards.iter().enumerate() {
                         print!("{}", card);
                         if i < cards.len() - 1 {
